@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, Plus, CheckCircle2, Circle, Clock, StickyNote, CalendarClock, Trash2 } from "lucide-react";
+import { ChevronLeft, Plus, CheckCircle2, Circle, Clock, StickyNote, CalendarClock, Trash2, Mic, Square, Sparkles, Languages, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient.js";
 
 const COLORS = {
@@ -50,6 +50,14 @@ const BFSP_STAGES = [
   { key: "bfspl", label: "BFSPL", full: "Learning" },
   { key: "bfspc", label: "BFSPC", full: "Creation" },
   { key: "bfspi", label: "BFSPI", full: "Implementation" },
+];
+
+const NOTE_LANGUAGES = [
+  { key: "en", label: "English", speechLang: "en-IN" },
+  { key: "ml", label: "Malayalam", speechLang: "ml-IN" },
+  { key: "manglish", label: "Manglish", speechLang: "en-IN" },
+  { key: "hi", label: "Hindi", speechLang: "hi-IN" },
+  { key: "ar", label: "Arabic", speechLang: "ar-SA" },
 ];
 
 const STATUS_META = {
@@ -172,6 +180,10 @@ function CompanyDetail({ company, onBack }) {
   const [bfsp, setBfsp] = useState(company.bfsp_category || "");
   const [loading, setLoading] = useState(true);
   const [noteDraft, setNoteDraft] = useState("");
+  const [noteLang, setNoteLang] = useState("en");
+  const [recording, setRecording] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const recognitionRef = React.useRef(null);
   const [apptDraft, setApptDraft] = useState({ title: "", with_whom: "", location: "", appointment_date: "", appointment_time: "" });
 
   async function load() {
@@ -209,6 +221,52 @@ function CompanyDetail({ company, onBack }) {
     const { data } = await supabase.from("company_notes").insert({ company_id: company.id, note: noteDraft.trim() }).select().single();
     if (data) setNotes((arr) => [data, ...arr]);
     setNoteDraft("");
+  }
+
+  function toggleRecording() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice recording isn't supported in this browser. Try Chrome or Safari.");
+      return;
+    }
+    if (recording) {
+      recognitionRef.current && recognitionRef.current.stop();
+      setRecording(false);
+      return;
+    }
+    const langMeta = NOTE_LANGUAGES.find((l) => l.key === noteLang) || NOTE_LANGUAGES[0];
+    const recognition = new SpeechRecognition();
+    recognition.lang = langMeta.speechLang;
+    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.onresult = (e) => {
+      let transcript = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+      setNoteDraft((d) => (d ? d + " " + transcript : transcript));
+    };
+    recognition.onerror = () => setRecording(false);
+    recognition.onend = () => setRecording(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setRecording(true);
+  }
+
+  async function runAI(action) {
+    if (!noteDraft.trim()) return;
+    setAiLoading(true);
+    try {
+      const r = await fetch("/api/ai-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: noteDraft, action, language: noteLang }),
+      });
+      const data = await r.json();
+      if (data.result) setNoteDraft(data.result);
+      else if (data.error) alert(data.error);
+    } catch (e) {
+      alert("AI request failed: " + e.message);
+    }
+    setAiLoading(false);
   }
   async function deleteNote(id) {
     setNotes((arr) => arr.filter((n) => n.id !== id));
@@ -347,22 +405,50 @@ function CompanyDetail({ company, onBack }) {
 
       {tab === "notes" && (
         <div style={{ maxWidth: 700 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <select value={noteLang} onChange={(e) => setNoteLang(e.target.value)}
+              style={{ padding: "8px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 12.5 }}>
+              {NOTE_LANGUAGES.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
+            </select>
+            <button onClick={toggleRecording} title="Voice input" style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 2, cursor: "pointer",
+              border: `1px solid ${recording ? COLORS.red : COLORS.line}`, background: recording ? COLORS.red : "#fff",
+              color: recording ? "#fff" : COLORS.ink, fontSize: 12.5, fontWeight: 600,
+            }}>
+              {recording ? <Square size={13} /> : <Mic size={13} />} {recording ? "Stop" : "Speak"}
+            </button>
+            <button onClick={() => runAI("polish")} disabled={aiLoading || !noteDraft.trim()} title="AI: polish this note" style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 2, cursor: "pointer",
+              border: `1px solid ${COLORS.blueprint}`, background: "#fff", color: COLORS.blueprint, fontSize: 12.5, fontWeight: 600,
+              opacity: !noteDraft.trim() ? 0.5 : 1,
+            }}>
+              {aiLoading ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />} AI Polish
+            </button>
+            <button onClick={() => runAI("translate")} disabled={aiLoading || !noteDraft.trim()} title="AI: translate to selected language" style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 2, cursor: "pointer",
+              border: `1px solid ${COLORS.amber}`, background: "#fff", color: COLORS.amber, fontSize: 12.5, fontWeight: 600,
+              opacity: !noteDraft.trim() ? 0.5 : 1,
+            }}>
+              <Languages size={13} /> Translate
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-            <input
+            <textarea
               value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addNote()}
-              placeholder="Add a note about this client..."
-              style={{ flex: 1, padding: "9px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13.5 }}
+              placeholder="Add a note about this client — type, speak, or paste, then AI Polish / Translate if you like..."
+              rows={3}
+              style={{ flex: 1, padding: "9px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13.5, resize: "vertical", fontFamily: "Inter" }}
             />
-            <button onClick={addNote} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+            <button onClick={addNote} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontWeight: 600, fontSize: 13, cursor: "pointer", alignSelf: "flex-start" }}>
               <Plus size={14} /> Add
             </button>
           </div>
+          <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {notes.map((n) => (
               <div key={n.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, background: COLORS.card, border: `1px solid ${COLORS.line}`, borderLeft: `3px solid ${COLORS.amber}`, padding: "10px 14px" }}>
                 <div>
-                  <div style={{ fontSize: 13.5, color: COLORS.ink }}>{n.note}</div>
+                  <div style={{ fontSize: 13.5, color: COLORS.ink, whiteSpace: "pre-wrap" }}>{n.note}</div>
                   <div style={{ fontSize: 11, color: COLORS.slate, marginTop: 4 }}>{new Date(n.created_at).toLocaleString()}</div>
                 </div>
                 <button onClick={() => deleteNote(n.id)} style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.slate, flexShrink: 0 }}>

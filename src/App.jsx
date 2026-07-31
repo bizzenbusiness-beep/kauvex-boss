@@ -19,37 +19,28 @@ const FONT_IMPORT = `
 `;
 
 const COLORS = {
-  ink: "#132530",
-  paper: "#EEF1F0",
+  ink: "#16213A",
+  paper: "#F4F6FA",
   card: "#FFFFFF",
-  blueprint: "#2C5F7C",
+  blueprint: "#2F6FED",
+  blueprintSoft: "#EAF1FE",
   amber: "#E8A23D",
-  slate: "#5B6B76",
-  green: "#3E8E5C",
-  red: "#C1483D",
-  line: "#D9DEDC",
+  amberSoft: "#FDF3E4",
+  slate: "#6B7688",
+  green: "#16A34A",
+  greenSoft: "#E9F9EF",
+  red: "#DC2626",
+  redSoft: "#FDEAEA",
+  line: "#E7EAF0",
 };
 
 function CornerFrame({ children, accent = COLORS.blueprint, style = {} }) {
   return (
-    <div style={{ position: "relative", ...style }}>
-      {["tl", "tr", "bl", "br"].map((pos) => (
-        <span
-          key={pos}
-          style={{
-            position: "absolute",
-            width: 10,
-            height: 10,
-            borderColor: accent,
-            borderStyle: "solid",
-            borderWidth: 0,
-            ...(pos === "tl" && { top: -1, left: -1, borderTopWidth: 2, borderLeftWidth: 2 }),
-            ...(pos === "tr" && { top: -1, right: -1, borderTopWidth: 2, borderRightWidth: 2 }),
-            ...(pos === "bl" && { bottom: -1, left: -1, borderBottomWidth: 2, borderLeftWidth: 2 }),
-            ...(pos === "br" && { bottom: -1, right: -1, borderBottomWidth: 2, borderRightWidth: 2 }),
-          }}
-        />
-      ))}
+    <div style={{
+      background: COLORS.card, borderRadius: 14, border: `1px solid ${COLORS.line}`,
+      boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 1px 8px rgba(16,24,40,0.03)",
+      ...style,
+    }}>
       {children}
     </div>
   );
@@ -89,10 +80,10 @@ function ProjectCoordination({ companyId }) {
   const [projectId, setProjectId] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [draft, setDraft] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!companyId);
 
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyId) { setLoading(false); return; }
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -153,6 +144,12 @@ function ProjectCoordination({ companyId }) {
   return (
     <div>
       <SectionHeading eyebrow="Module 01" title="Project Coordination" />
+      {!companyId ? (
+        <div style={{ fontSize: 13.5, color: COLORS.slate }}>
+          No company selected yet. Kauvex staff: company switching for this module is coming soon — for now this links to your own profile's company.
+        </div>
+      ) : (
+      <>
       <div style={{ display: "flex", gap: 10, marginBottom: 22 }}>
         <input
           value={draft}
@@ -214,6 +211,8 @@ function ProjectCoordination({ companyId }) {
           })}
         </div>
       )}
+      </>
+      )}
     </div>
   );
 }
@@ -274,7 +273,7 @@ function ActivityModule({ companyId, profile }) {
   const tagColor = { "Check-in": COLORS.green, "Check-out": COLORS.red, Task: COLORS.blueprint, Finance: COLORS.amber, Marketing: COLORS.slate, "Workflow Log": COLORS.blueprint };
 
   async function loadLogs() {
-    if (!companyId) return;
+    if (!companyId) { setLoading(false); return; }
     setLoading(true);
     const today = new Date().toISOString().slice(0, 10);
     const { data } = await supabase
@@ -327,6 +326,12 @@ function ActivityModule({ companyId, profile }) {
     <div>
       <SectionHeading eyebrow="Module 03" title="Activity Log" />
 
+      {!companyId ? (
+        <div style={{ fontSize: 13.5, color: COLORS.slate }}>
+          No company selected yet. Kauvex staff: company switching for this module is coming soon — for now this links to your own profile's company.
+        </div>
+      ) : (
+      <>
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
         <button
           onClick={handleCheckIn}
@@ -387,6 +392,8 @@ function ActivityModule({ companyId, profile }) {
           ))}
           {logs.length === 0 && <div style={{ fontSize: 13, color: COLORS.slate, fontStyle: "italic" }}>No activity logged today yet.</div>}
         </div>
+      )}
+      </>
       )}
     </div>
   );
@@ -653,24 +660,23 @@ function Dashboard({ profile, onSignOut }) {
     <div style={{ minHeight: "100vh", background: COLORS.paper, fontFamily: "Inter" }}>
       <style>{FONT_IMPORT}</style>
 
-      {/* blueprint grid backdrop for header only */}
       <div style={{
-        background: COLORS.ink, padding: "22px 28px", display: "flex", alignItems: "center",
-        justifyContent: "space-between", backgroundImage:
-          "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
-        backgroundSize: "22px 22px",
+        background: COLORS.ink, padding: "16px 28px", display: "flex", alignItems: "center",
+        justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.06)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Building2 color={COLORS.amber} size={22} />
-          <span style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 19, color: "#fff", letterSpacing: 0.3 }}>KAUVEX</span>
-          <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: COLORS.amber, marginLeft: 4 }}>OPS</span>
+          <div style={{ width: 34, height: 34, borderRadius: 9, background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Building2 color={COLORS.amber} size={18} />
+          </div>
+          <span style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 18, color: "#fff", letterSpacing: 0.3 }}>KAUVEX</span>
+          <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: COLORS.amber, marginLeft: 2 }}>OPS</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontFamily: "Inter", fontSize: 12.5, color: "#fff", fontWeight: 500 }}>
+            <div style={{ fontFamily: "Inter", fontSize: 13, color: "#fff", fontWeight: 600 }}>
               {profile.full_name}
             </div>
-            <div style={{ fontFamily: "IBM Plex Mono", fontSize: 10.5, color: isKauvexStaff ? COLORS.amber : "#B9C2C6" }}>
+            <div style={{ fontFamily: "Inter", fontSize: 11.5, color: isKauvexStaff ? COLORS.amber : "#9AA5B5" }}>
               {ROLE_LABELS[profile.role] || profile.role}{isKauvexStaff ? " · all clients" : ""}
             </div>
           </div>
@@ -678,9 +684,9 @@ function Dashboard({ profile, onSignOut }) {
             onClick={onSignOut}
             title="Sign out"
             style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "7px 12px",
-              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)",
-              borderRadius: 2, color: "#B9C2C6", fontFamily: "Inter", fontSize: 12, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+              background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 8, color: "#E4E8EF", fontFamily: "Inter", fontSize: 12.5, fontWeight: 500, cursor: "pointer",
             }}
           >
             <LogOut size={13} /> Sign out
@@ -690,7 +696,7 @@ function Dashboard({ profile, onSignOut }) {
 
       <div style={{ display: "flex" }}>
         {/* Sidebar */}
-        <div style={{ width: 230, background: "#fff", borderRight: `1px solid ${COLORS.line}`, minHeight: "calc(100vh - 66px)", padding: "20px 0" }}>
+        <div style={{ width: 240, background: "#fff", borderRight: `1px solid ${COLORS.line}`, minHeight: "calc(100vh - 66px)", padding: "16px 12px" }}>
           {nav.map(({ key, label, icon: Icon }) => {
             const isActive = key === active;
             return (
@@ -699,19 +705,18 @@ function Dashboard({ profile, onSignOut }) {
                 onClick={() => setActive(key)}
                 style={{
                   width: "100%", display: "flex", alignItems: "center", gap: 10,
-                  padding: "11px 22px", border: "none", background: isActive ? "#F1F5F4" : "transparent",
-                  borderLeft: isActive ? `3px solid ${COLORS.blueprint}` : "3px solid transparent",
+                  padding: "10px 14px", border: "none", background: isActive ? COLORS.blueprintSoft : "transparent",
+                  borderRadius: 10, marginBottom: 3,
                   cursor: "pointer", textAlign: "left",
                 }}
               >
                 <Icon size={16} color={isActive ? COLORS.blueprint : COLORS.slate} />
                 <span style={{
                   fontFamily: "Inter", fontSize: 13.5, fontWeight: isActive ? 600 : 500,
-                  color: isActive ? COLORS.ink : COLORS.slate,
+                  color: isActive ? COLORS.blueprint : COLORS.slate,
                 }}>
                   {label}
                 </span>
-                {isActive && <ChevronRight size={14} color={COLORS.blueprint} style={{ marginLeft: "auto" }} />}
               </button>
             );
           })}

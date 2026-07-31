@@ -1,8 +1,12 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   LayoutGrid, Users, Activity, Gauge, TrendingUp,
-  Plus, Circle, Clock, CheckCircle2, ChevronRight, Building2
+  Plus, Circle, Clock, CheckCircle2, ChevronRight, Building2,
+  LogOut, Lock, Loader2, AlertCircle, FileText, Map
 } from "lucide-react";
+import { supabase } from "./lib/supabaseClient.js";
+import FormsModule from "./forms/FormsModule.jsx";
+import FramexTracker from "./framex/FramexTracker.jsx";
 
 /* ---------------------------------------------------------
    KAUVEX OPS — internal command-center for BOSS BMW rollouts
@@ -81,26 +85,63 @@ function SectionHeading({ eyebrow, title }) {
 }
 
 /* ---------------- PROJECT COORDINATION ---------------- */
-function ProjectCoordination() {
-  const [columns, setColumns] = useState({
-    todo: [
-      { id: 1, text: "Site survey — Kozhikode Godown Phase 2" },
-      { id: 2, text: "Structural drawing review — Palakkad Auditorium" },
-    ],
-    progress: [
-      { id: 3, text: "Steel fabrication — Coimbatore Mall" },
-      { id: 4, text: "Client sign-off — Bengaluru Warehouse" },
-    ],
-    done: [
-      { id: 5, text: "Foundation handover — Kannur Complex" },
-    ],
-  });
+function ProjectCoordination({ companyId }) {
+  const [projectId, setProjectId] = useState(null);
+  const [tasks, setTasks] = useState([]);
   const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  function addTask() {
-    if (!draft.trim()) return;
-    setColumns((c) => ({ ...c, todo: [...c.todo, { id: Date.now(), text: draft.trim() }] }));
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      let { data: projects } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      let pid = projects && projects[0] ? projects[0].id : null;
+      if (!pid) {
+        const { data: created } = await supabase
+          .from("projects")
+          .insert({ company_id: companyId, name: "General Board", status: "active" })
+          .select()
+          .single();
+        pid = created ? created.id : null;
+      }
+      if (cancelled) return;
+      setProjectId(pid);
+      if (pid) {
+        const { data: taskRows } = await supabase
+          .from("tasks")
+          .select("*")
+          .eq("project_id", pid)
+          .order("created_at", { ascending: true });
+        if (!cancelled) setTasks(taskRows || []);
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
+
+  async function addTask() {
+    if (!draft.trim() || !projectId) return;
+    const { data: created } = await supabase
+      .from("tasks")
+      .insert({ project_id: projectId, title: draft.trim(), status: "todo" })
+      .select()
+      .single();
+    if (created) setTasks((t) => [...t, created]);
     setDraft("");
+  }
+
+  async function cycleStatus(task) {
+    const order = ["todo", "progress", "done"];
+    const next = order[(order.indexOf(task.status) + 1) % order.length];
+    setTasks((ts) => ts.map((t) => (t.id === task.id ? { ...t, status: next } : t)));
+    await supabase.from("tasks").update({ status: next, updated_at: new Date().toISOString() }).eq("id", task.id);
   }
 
   const colMeta = [
@@ -135,31 +176,44 @@ function ProjectCoordination() {
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-        {colMeta.map(({ key, label, accent, icon: Icon }) => (
-          <div key={key}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-              <Icon size={14} color={accent} />
-              <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase", color: accent }}>
-                {label} · {columns[key].length}
-              </span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {columns[key].map((t) => (
-                <div key={t.id} style={{
-                  background: COLORS.card, border: `1px solid ${COLORS.line}`, borderLeft: `3px solid ${accent}`,
-                  padding: "10px 12px", fontFamily: "Inter", fontSize: 13.5, color: COLORS.ink, borderRadius: 2,
-                }}>
-                  {t.text}
+      {loading ? (
+        <div style={{ color: COLORS.slate, fontSize: 13 }}>Loading tasks...</div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+          {colMeta.map(({ key, label, accent, icon: Icon }) => {
+            const colTasks = tasks.filter((t) => t.status === key);
+            return (
+              <div key={key}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                  <Icon size={14} color={accent} />
+                  <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase", color: accent }}>
+                    {label} · {colTasks.length}
+                  </span>
                 </div>
-              ))}
-              {columns[key].length === 0 && (
-                <div style={{ fontFamily: "Inter", fontSize: 12.5, color: COLORS.slate, fontStyle: "italic" }}>Nothing here yet</div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {colTasks.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => cycleStatus(t)}
+                      title="Click to move to next status"
+                      style={{
+                        background: COLORS.card, border: `1px solid ${COLORS.line}`, borderLeft: `3px solid ${accent}`,
+                        padding: "10px 12px", fontFamily: "Inter", fontSize: 13.5, color: COLORS.ink, borderRadius: 2,
+                        textAlign: "left", cursor: "pointer",
+                      }}
+                    >
+                      {t.title}
+                    </button>
+                  ))}
+                  {colTasks.length === 0 && (
+                    <div style={{ fontFamily: "Inter", fontSize: 12.5, color: COLORS.slate, fontStyle: "italic" }}>Nothing here yet</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -210,34 +264,130 @@ function HRModule() {
 }
 
 /* ---------------- ACTIVITY ---------------- */
-function ActivityModule() {
-  const logs = [
-    { time: "09:02", who: "Site Supervisor", text: "Checked in — Kozhikode site", tag: "Check-in" },
-    { time: "10:15", who: "Project Manager", text: "Reviewed steel delivery schedule", tag: "Task" },
-    { time: "12:40", who: "Accountant", text: "Logged Instalment 3 receipt", tag: "Finance" },
-    { time: "14:20", who: "Digital Marketing", text: "Published 2 lead-gen posts", tag: "Marketing" },
-    { time: "18:05", who: "Site Supervisor", text: "Checked out — 8.2 productive hrs", tag: "Check-out" },
-  ];
-  const tagColor = { "Check-in": COLORS.green, "Check-out": COLORS.red, Task: COLORS.blueprint, Finance: COLORS.amber, Marketing: COLORS.slate };
+function ActivityModule({ companyId, profile }) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [note, setNote] = useState("");
+  const [checkedIn, setCheckedIn] = useState(false);
+  const [posting, setPosting] = useState(false);
+
+  const tagColor = { "Check-in": COLORS.green, "Check-out": COLORS.red, Task: COLORS.blueprint, Finance: COLORS.amber, Marketing: COLORS.slate, "Workflow Log": COLORS.blueprint };
+
+  async function loadLogs() {
+    if (!companyId) return;
+    setLoading(true);
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabase
+      .from("activity_logs")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("log_date", today)
+      .order("log_time", { ascending: false })
+      .limit(30);
+    setLogs(data || []);
+    if (data) {
+      const mine = data.filter((d) => d.description && d.description.includes(profile.full_name));
+      const lastCheckIn = mine.find((d) => d.activity_type === "Check-in");
+      const lastCheckOut = mine.find((d) => d.activity_type === "Check-out");
+      setCheckedIn(!!lastCheckIn && (!lastCheckOut || new Date(lastCheckIn.created_at) > new Date(lastCheckOut.created_at)));
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => { loadLogs(); /* eslint-disable-next-line */ }, [companyId]);
+
+  async function postLog(activity_type, description) {
+    if (!companyId) return;
+    setPosting(true);
+    const now = new Date();
+    await supabase.from("activity_logs").insert({
+      company_id: companyId,
+      activity_type,
+      description,
+      log_date: now.toISOString().slice(0, 10),
+      log_time: now.toTimeString().slice(0, 8),
+    });
+    setPosting(false);
+    loadLogs();
+  }
+
+  function handleCheckIn() {
+    postLog("Check-in", `${profile.full_name} checked in`);
+  }
+  function handleCheckOut() {
+    postLog("Check-out", `${profile.full_name} checked out`);
+  }
+  function handleSubmitLog() {
+    if (!note.trim()) return;
+    postLog("Task", `${profile.full_name} — ${note.trim()}`);
+    setNote("");
+  }
+
   return (
     <div>
       <SectionHeading eyebrow="Module 03" title="Activity Log" />
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        {logs.map((l, i) => (
-          <div key={i} style={{ display: "flex", gap: 16, padding: "12px 0", borderTop: i ? `1px solid ${COLORS.line}` : "none" }}>
-            <div style={{ fontFamily: "IBM Plex Mono", fontSize: 12.5, color: COLORS.slate, width: 50 }}>{l.time}</div>
-            <div style={{
-              fontFamily: "IBM Plex Mono", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5,
-              color: "#fff", background: tagColor[l.tag], padding: "2px 8px", borderRadius: 2, height: 18, width: 76, textAlign: "center",
-            }}>
-              {l.tag}
-            </div>
-            <div style={{ fontFamily: "Inter", fontSize: 13.5, color: COLORS.ink, flex: 1 }}>
-              <strong style={{ fontWeight: 600 }}>{l.who}</strong> — {l.text}
-            </div>
-          </div>
-        ))}
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        <button
+          onClick={handleCheckIn}
+          disabled={checkedIn || posting}
+          style={{
+            padding: "9px 16px", borderRadius: 2, border: "none", cursor: checkedIn ? "default" : "pointer",
+            background: checkedIn ? COLORS.line : COLORS.green, color: checkedIn ? COLORS.slate : "#fff",
+            fontFamily: "Inter", fontWeight: 600, fontSize: 13,
+          }}
+        >
+          {checkedIn ? "Checked In ✓" : "Check In"}
+        </button>
+        <button
+          onClick={handleCheckOut}
+          disabled={!checkedIn || posting}
+          style={{
+            padding: "9px 16px", borderRadius: 2, border: `1px solid ${COLORS.red}`, cursor: !checkedIn ? "default" : "pointer",
+            background: "#fff", color: !checkedIn ? COLORS.line : COLORS.red,
+            fontFamily: "Inter", fontWeight: 600, fontSize: 13,
+          }}
+        >
+          Check Out
+        </button>
       </div>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 26 }}>
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSubmitLog()}
+          placeholder="Log a task / workflow update — e.g. Reviewed steel delivery schedule"
+          style={{ flex: 1, padding: "10px 14px", border: `1px solid ${COLORS.line}`, fontFamily: "Inter", fontSize: 14, background: COLORS.card, borderRadius: 2 }}
+        />
+        <button
+          onClick={handleSubmitLog}
+          disabled={posting}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontFamily: "Inter", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+        >
+          <Plus size={15} /> Submit
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ color: COLORS.slate, fontSize: 13 }}>Loading today's log...</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {logs.map((l, i) => (
+            <div key={l.id || i} style={{ display: "flex", gap: 16, padding: "12px 0", borderTop: i ? `1px solid ${COLORS.line}` : "none" }}>
+              <div style={{ fontFamily: "IBM Plex Mono", fontSize: 12.5, color: COLORS.slate, width: 60 }}>{(l.log_time || "").slice(0, 5)}</div>
+              <div style={{
+                fontFamily: "IBM Plex Mono", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5,
+                color: "#fff", background: tagColor[l.activity_type] || COLORS.slate, padding: "2px 8px", borderRadius: 2, height: 18, width: 86, textAlign: "center",
+              }}>
+                {l.activity_type}
+              </div>
+              <div style={{ fontFamily: "Inter", fontSize: 13.5, color: COLORS.ink, flex: 1 }}>{l.description}</div>
+            </div>
+          ))}
+          {logs.length === 0 && <div style={{ fontSize: 13, color: COLORS.slate, fontStyle: "italic" }}>No activity logged today yet.</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -327,6 +477,156 @@ function ImprovementCalc() {
   );
 }
 
+/* ---------------- ROLE LABELS ---------------- */
+const ROLE_LABELS = {
+  // Company-level
+  bdd: "Managing Director",
+  bgm: "Chief General Manager",
+  cbo: "Chief Business Officer",
+  bom: "Chief Operations Officer",
+  bdm: "Chief Development Officer",
+  cgo: "Chief Growth Officer",
+  accountant: "Finance Manager",
+  manager: "Team Manager",
+  sales: "Sales Executive",
+  sales_manager: "Sales Manager",
+  staff: "Office Staff",
+  bso: "System Administrator",
+  hr: "HR",
+  marketing_executive: "Marketing Executive",
+  marketing_manager: "Marketing Manager",
+  team_leader: "Team Leader",
+  company_investor: "Company Investor",
+  // Platform-level (BizZen team)
+  platform_owner: "Platform Owner",
+  platform_dev: "Platform Developer",
+  platform_support: "Support Executive",
+  platform_bom: "Platform Sales",
+  platform_investor: "Platform Investor",
+};
+const KAUVEX_ROLES = ["platform_owner", "platform_dev", "platform_support", "platform_bom", "platform_investor"];
+// Company-side roles with full admin/leadership access (matches is_company_admin_or_leader() in SQL)
+const COMPANY_ADMIN_ROLES = ["bdd", "bgm", "cbo", "bom", "bdm", "cgo", "bso"];
+function hasFullVisibility(role) {
+  return KAUVEX_ROLES.includes(role) || COMPANY_ADMIN_ROLES.includes(role);
+}
+
+const BFSP_LABELS = {
+  bfspl: "BFSPL · Learning",
+  bfspc: "BFSPC · Creation",
+  bfspi: "BFSPI · Implementation",
+};
+
+/* ---------------- LOGIN SCREEN ---------------- */
+function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) setError(error.message);
+  }
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: COLORS.ink, fontFamily: "Inter",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      backgroundImage:
+        "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)",
+      backgroundSize: "24px 24px",
+    }}>
+      <style>{FONT_IMPORT}</style>
+      <CornerFrame accent={COLORS.amber} style={{ background: COLORS.card, padding: "36px 34px", width: 360 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 26 }}>
+          <Building2 color={COLORS.blueprint} size={22} />
+          <span style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 20, color: COLORS.ink }}>KAUVEX</span>
+          <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: COLORS.amber, marginLeft: 2 }}>OPS</span>
+        </div>
+        <div style={{ fontFamily: "IBM Plex Mono", fontSize: 11, letterSpacing: 0.8, color: COLORS.slate, textTransform: "uppercase", marginBottom: 20 }}>
+          Sign in to your workspace
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <label style={{ display: "block", marginBottom: 14 }}>
+            <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>Email</div>
+            <input
+              type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "Inter", fontSize: 14, boxSizing: "border-box" }}
+            />
+          </label>
+          <label style={{ display: "block", marginBottom: 18 }}>
+            <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>Password</div>
+            <input
+              type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "Inter", fontSize: 14, boxSizing: "border-box" }}
+            />
+          </label>
+
+          {error && (
+            <div style={{ display: "flex", gap: 6, alignItems: "flex-start", background: "#FBEAE8", border: `1px solid ${COLORS.red}`, padding: "8px 10px", borderRadius: 2, marginBottom: 16 }}>
+              <AlertCircle size={14} color={COLORS.red} style={{ marginTop: 2, flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, color: COLORS.red }}>{error}</span>
+            </div>
+          )}
+
+          <button
+            type="submit" disabled={loading}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "11px 16px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2,
+              fontFamily: "Inter", fontWeight: 600, fontSize: 14, cursor: loading ? "default" : "pointer",
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading ? <Loader2 size={15} className="spin" /> : <Lock size={14} />}
+            {loading ? "Signing in..." : "Sign In"}
+          </button>
+        </form>
+
+        <div style={{ fontFamily: "Inter", fontSize: 11.5, color: COLORS.slate, marginTop: 18, lineHeight: 1.5 }}>
+          Accounts are created by invite only. If you don't have one yet,
+          contact your Kauvex admin.
+        </div>
+      </CornerFrame>
+      <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+/* ---------------- NO PROFILE / PENDING ACCESS SCREEN ---------------- */
+function PendingAccess({ email, onSignOut }) {
+  return (
+    <div style={{ minHeight: "100vh", background: COLORS.paper, fontFamily: "Inter", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <style>{FONT_IMPORT}</style>
+      <CornerFrame accent={COLORS.amber} style={{ background: COLORS.card, padding: "32px 30px", width: 380, textAlign: "center" }}>
+        <Lock size={22} color={COLORS.amber} style={{ marginBottom: 12 }} />
+        <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 17, color: COLORS.ink, marginBottom: 8 }}>
+          Access pending
+        </div>
+        <div style={{ fontSize: 13, color: COLORS.slate, lineHeight: 1.6, marginBottom: 20 }}>
+          You're signed in as <strong>{email}</strong>, but no workspace role
+          has been assigned to this account yet. Ask your Kauvex admin to add
+          you.
+        </div>
+        <button
+          onClick={onSignOut}
+          style={{ padding: "9px 18px", background: "transparent", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "Inter", fontSize: 13, color: COLORS.ink, cursor: "pointer" }}
+        >
+          Sign out
+        </button>
+      </CornerFrame>
+    </div>
+  );
+}
+
 /* ---------------- SHELL ---------------- */
 const NAV = [
   { key: "coord", label: "Project Coordination", icon: LayoutGrid, Comp: ProjectCoordination },
@@ -334,11 +634,20 @@ const NAV = [
   { key: "activity", label: "Activity", icon: Activity, Comp: ActivityModule },
   { key: "measure", label: "Measure & Monitor", icon: Gauge, Comp: MeasureMonitor },
   { key: "improve", label: "Improvement Calc", icon: TrendingUp, Comp: ImprovementCalc },
+  { key: "forms", label: "Forms & Trackers", icon: FileText, Comp: null },
+  { key: "framex", label: "BizZen Framex", icon: Map, Comp: null },
 ];
 
-export default function KauvexOps() {
+function Dashboard({ profile, onSignOut }) {
   const [active, setActive] = useState("coord");
-  const Active = NAV.find((n) => n.key === active).Comp;
+
+  // Roles without full company-admin access get a lighter nav — no HR module
+  // (sensitive: happiness scores, evaluations)
+  const nav = hasFullVisibility(profile.role) ? NAV : NAV.filter((n) => n.key !== "hr");
+  const activeItem = nav.find((n) => n.key === active) || nav[0];
+  const Active = activeItem.Comp;
+
+  const isKauvexStaff = KAUVEX_ROLES.includes(profile.role);
 
   return (
     <div style={{ minHeight: "100vh", background: COLORS.paper, fontFamily: "Inter" }}>
@@ -356,15 +665,33 @@ export default function KauvexOps() {
           <span style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 19, color: "#fff", letterSpacing: 0.3 }}>KAUVEX</span>
           <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: COLORS.amber, marginLeft: 4 }}>OPS</span>
         </div>
-        <div style={{ fontFamily: "IBM Plex Mono", fontSize: 12, color: "#B9C2C6" }}>
-          Build Eye Structure LLP · Perinthalmanna
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontFamily: "Inter", fontSize: 12.5, color: "#fff", fontWeight: 500 }}>
+              {profile.full_name}
+            </div>
+            <div style={{ fontFamily: "IBM Plex Mono", fontSize: 10.5, color: isKauvexStaff ? COLORS.amber : "#B9C2C6" }}>
+              {ROLE_LABELS[profile.role] || profile.role}{isKauvexStaff ? " · all clients" : ""}
+            </div>
+          </div>
+          <button
+            onClick={onSignOut}
+            title="Sign out"
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "7px 12px",
+              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 2, color: "#B9C2C6", fontFamily: "Inter", fontSize: 12, cursor: "pointer",
+            }}
+          >
+            <LogOut size={13} /> Sign out
+          </button>
         </div>
       </div>
 
       <div style={{ display: "flex" }}>
         {/* Sidebar */}
         <div style={{ width: 230, background: "#fff", borderRight: `1px solid ${COLORS.line}`, minHeight: "calc(100vh - 66px)", padding: "20px 0" }}>
-          {NAV.map(({ key, label, icon: Icon }) => {
+          {nav.map(({ key, label, icon: Icon }) => {
             const isActive = key === active;
             return (
               <button
@@ -392,9 +719,76 @@ export default function KauvexOps() {
 
         {/* Main */}
         <div style={{ flex: 1, padding: "32px 36px" }}>
-          <Active />
+          {active === "forms" ? (
+            <FormsModule companyId={profile.company_id} userId={profile.id} />
+          ) : active === "framex" ? (
+            <FramexTracker />
+          ) : active === "coord" ? (
+            <ProjectCoordination companyId={profile.company_id} />
+          ) : active === "activity" ? (
+            <ActivityModule companyId={profile.company_id} profile={profile} />
+          ) : (
+            <Active />
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+/* ---------------- AUTH GATE ---------------- */
+export default function AuthGate() {
+  const [session, setSession] = useState(undefined); // undefined = loading, null = signed out
+  const [profile, setProfile] = useState(undefined); // undefined = loading, null = no profile row
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess ?? null);
+      setProfile(undefined);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setProfile(data ?? null);
+      });
+    return () => { cancelled = true; };
+  }, [session]);
+
+  function handleSignOut() {
+    supabase.auth.signOut();
+  }
+
+  if (session === undefined) {
+    return (
+      <div style={{ minHeight: "100vh", background: COLORS.paper, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Loader2 size={22} color={COLORS.blueprint} className="spin" />
+        <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!session) return <Login />;
+
+  if (profile === undefined) {
+    return (
+      <div style={{ minHeight: "100vh", background: COLORS.paper, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Loader2 size={22} color={COLORS.blueprint} className="spin" />
+        <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!profile) return <PendingAccess email={session.user.email} onSignOut={handleSignOut} />;
+
+  return <Dashboard profile={profile} onSignOut={handleSignOut} />;
 }

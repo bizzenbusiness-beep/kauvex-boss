@@ -23,19 +23,21 @@ const FONT_IMPORT = `
 `;
 
 const COLORS = {
-  ink: "#16213A",
-  paper: "#F4F6FA",
+  ink: "#0E0E0E",
+  paper: "#F7F5F0",
   card: "#FFFFFF",
-  blueprint: "#2F6FED",
-  blueprintSoft: "#EAF1FE",
-  amber: "#E8A23D",
-  amberSoft: "#FDF3E4",
-  slate: "#6B7688",
+  blueprint: "#B7862B",
+  blueprintSoft: "#FBF1DD",
+  amber: "#B7862B",
+  amberSoft: "#FBF1DD",
+  slate: "#6B6458",
   green: "#16A34A",
   greenSoft: "#E9F9EF",
   red: "#DC2626",
   redSoft: "#FDEAEA",
-  line: "#E7EAF0",
+  line: "#E9E4D8",
+  gold: "#C99A3C",
+  goldDeep: "#8A6420",
 };
 
 function CornerFrame({ children, accent = COLORS.blueprint, style = {} }) {
@@ -222,46 +224,110 @@ function ProjectCoordination({ companyId }) {
 }
 
 /* ---------------- HR ---------------- */
-function HRModule() {
-  const team = [
-    { name: "Navas", role: "Owner", happiness: 8, value: "Vision & client trust" },
-    { name: "Structural Engineer", role: "Design", happiness: 7, value: "Drawing accuracy" },
-    { name: "Project Manager", role: "Execution", happiness: 6, value: "Site coordination" },
-    { name: "Site Supervisor", role: "Execution", happiness: 7, value: "Daily site control" },
-    { name: "Accountant", role: "Finance", happiness: 8, value: "Cash-flow discipline" },
-    { name: "Digital Marketing", role: "Marketing", happiness: 6, value: "Lead visibility" },
-  ];
+function HRModule({ companyId }) {
+  const [team, setTeam] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [draft, setDraft] = useState({ name: "", role: "", department: "", happiness_score: 7 });
+
+  async function load() {
+    if (!companyId) { setLoading(false); return; }
+    setLoading(true);
+    const { data } = await supabase.from("team_members").select("*").eq("company_id", companyId).order("created_at", { ascending: true });
+    setTeam(data || []);
+    setLoading(false);
+  }
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
+
+  async function addMember() {
+    if (!draft.name.trim() || !companyId) return;
+    const { data } = await supabase.from("team_members").insert({
+      company_id: companyId, name: draft.name.trim(), role: draft.role, department: draft.department,
+      happiness_score: Number(draft.happiness_score) || null,
+    }).select().single();
+    if (data) setTeam((t) => [...t, data]);
+    setDraft({ name: "", role: "", department: "", happiness_score: 7 });
+    setShowAdd(false);
+  }
+
   return (
     <div>
-      <SectionHeading eyebrow="Module 02" title="HR & Team Happiness" />
-      <CornerFrame accent={COLORS.blueprint} style={{ background: COLORS.card, padding: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+        <SectionHeading eyebrow="Module 02" title="HR & Team Happiness" />
+        {companyId && (
+          <button onClick={() => setShowAdd((s) => !s)} style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", background: COLORS.ink, color: "#fff",
+            border: "none", borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: "pointer",
+          }}>
+            <Plus size={15} /> Add Team Member
+          </button>
+        )}
+      </div>
+
+      {!companyId ? (
+        <div style={{ fontSize: 13.5, color: COLORS.slate }}>
+          No company selected yet. Use the company switcher at the top to pick a client.
+        </div>
+      ) : (
+      <>
+      {showAdd && (
+        <CornerFrame style={{ padding: 16, marginBottom: 18, maxWidth: 620 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input placeholder="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              style={{ flex: "1 1 140px", padding: "9px 11px", border: `1px solid ${COLORS.line}`, borderRadius: 8, fontSize: 13.5 }} />
+            <input placeholder="Role" value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })}
+              style={{ flex: "1 1 120px", padding: "9px 11px", border: `1px solid ${COLORS.line}`, borderRadius: 8, fontSize: 13.5 }} />
+            <input placeholder="Department" value={draft.department} onChange={(e) => setDraft({ ...draft, department: e.target.value })}
+              style={{ flex: "1 1 120px", padding: "9px 11px", border: `1px solid ${COLORS.line}`, borderRadius: 8, fontSize: 13.5 }} />
+            <input type="number" min="1" max="10" placeholder="Happiness" value={draft.happiness_score}
+              onChange={(e) => setDraft({ ...draft, happiness_score: e.target.value })}
+              style={{ width: 90, padding: "9px 11px", border: `1px solid ${COLORS.line}`, borderRadius: 8, fontSize: 13.5 }} />
+            <button onClick={addMember} style={{ padding: "9px 16px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+              Save
+            </button>
+          </div>
+        </CornerFrame>
+      )}
+
+      {loading ? (
+        <div style={{ color: COLORS.slate, fontSize: 13 }}>Loading team...</div>
+      ) : (
+      <CornerFrame style={{ background: COLORS.card, padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "Inter" }}>
           <thead>
             <tr style={{ background: COLORS.ink }}>
-              {["Name", "Role", "Happiness", "Value Created"].map((h) => (
+              {["Name", "Role", "Department", "Happiness"].map((h) => (
                 <th key={h} style={{ textAlign: "left", padding: "10px 14px", color: "#fff", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {team.map((t, i) => (
-              <tr key={t.name} style={{ borderTop: `1px solid ${COLORS.line}`, background: i % 2 ? "#FAFBFA" : "#fff" }}>
+              <tr key={t.id} style={{ borderTop: `1px solid ${COLORS.line}`, background: i % 2 ? "#FAFAF7" : "#fff" }}>
                 <td style={{ padding: "10px 14px", fontSize: 13.5, color: COLORS.ink, fontWeight: 500 }}>{t.name}</td>
                 <td style={{ padding: "10px 14px", fontSize: 13, color: COLORS.slate }}>{t.role}</td>
+                <td style={{ padding: "10px 14px", fontSize: 13, color: COLORS.slate }}>{t.department}</td>
                 <td style={{ padding: "10px 14px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 70, height: 6, background: COLORS.line, borderRadius: 3, overflow: "hidden" }}>
-                      <div style={{ width: `${t.happiness * 10}%`, height: "100%", background: t.happiness >= 7 ? COLORS.green : COLORS.amber }} />
+                  {t.happiness_score ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 70, height: 6, background: COLORS.line, borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ width: `${t.happiness_score * 10}%`, height: "100%", background: t.happiness_score >= 7 ? COLORS.green : COLORS.amber }} />
+                      </div>
+                      <span style={{ fontFamily: "IBM Plex Mono", fontSize: 12, color: COLORS.slate }}>{t.happiness_score}/10</span>
                     </div>
-                    <span style={{ fontFamily: "IBM Plex Mono", fontSize: 12, color: COLORS.slate }}>{t.happiness}/10</span>
-                  </div>
+                  ) : <span style={{ fontSize: 12, color: COLORS.slate }}>—</span>}
                 </td>
-                <td style={{ padding: "10px 14px", fontSize: 13, color: COLORS.slate }}>{t.value}</td>
               </tr>
             ))}
+            {team.length === 0 && (
+              <tr><td colSpan={4} style={{ padding: "16px 14px", fontSize: 13, color: COLORS.slate, fontStyle: "italic" }}>No team members yet — add one above.</td></tr>
+            )}
           </tbody>
         </table>
       </CornerFrame>
+      )}
+      </>
+      )}
     </div>
   );
 }
@@ -695,14 +761,27 @@ const NAV = [
 
 function Dashboard({ profile, onSignOut }) {
   const [active, setActive] = useState("coord");
+  const isKauvexStaff = KAUVEX_ROLES.includes(profile.role);
+
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(profile.company_id || null);
+
+  useEffect(() => {
+    if (!isKauvexStaff) return;
+    supabase.from("companies").select("id,name").order("name").then(({ data }) => {
+      setCompanies(data || []);
+      if (!selectedCompanyId && data && data.length) setSelectedCompanyId(data[0].id);
+    });
+    // eslint-disable-next-line
+  }, []);
+
+  const effectiveCompanyId = isKauvexStaff ? selectedCompanyId : profile.company_id;
 
   // Roles without full company-admin access get a lighter nav — no HR module
   // (sensitive: happiness scores, evaluations)
   const nav = hasFullVisibility(profile.role) ? NAV : NAV.filter((n) => n.key !== "hr");
   const activeItem = nav.find((n) => n.key === active) || nav[0];
   const Active = activeItem.Comp;
-
-  const isKauvexStaff = KAUVEX_ROLES.includes(profile.role);
 
   return (
     <div style={{ minHeight: "100vh", background: COLORS.paper, fontFamily: "Inter" }}>
@@ -720,12 +799,27 @@ function Dashboard({ profile, onSignOut }) {
           <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: COLORS.amber, marginLeft: 2 }}>OPS</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {isKauvexStaff && (
+            <select
+              value={selectedCompanyId || ""}
+              onChange={(e) => setSelectedCompanyId(e.target.value)}
+              style={{
+                padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)",
+                background: "rgba(255,255,255,0.08)", color: "#fff", fontFamily: "Inter", fontSize: 12.5, fontWeight: 500,
+              }}
+            >
+              {companies.length === 0 && <option value="">No clients yet</option>}
+              {companies.map((c) => (
+                <option key={c.id} value={c.id} style={{ color: "#000" }}>{c.name}</option>
+              ))}
+            </select>
+          )}
           <div style={{ textAlign: "right" }}>
             <div style={{ fontFamily: "Inter", fontSize: 13, color: "#fff", fontWeight: 600 }}>
               {profile.full_name}
             </div>
             <div style={{ fontFamily: "Inter", fontSize: 11.5, color: isKauvexStaff ? COLORS.amber : "#9AA5B5" }}>
-              {ROLE_LABELS[profile.role] || profile.role}{isKauvexStaff ? " · all clients" : ""}
+              {ROLE_LABELS[profile.role] || profile.role}
             </div>
           </div>
           <button
@@ -773,13 +867,15 @@ function Dashboard({ profile, onSignOut }) {
         {/* Main */}
         <div style={{ flex: 1, padding: "32px 36px" }}>
           {active === "forms" ? (
-            <FormsModule companyId={profile.company_id} userId={profile.id} />
+            <FormsModule companyId={effectiveCompanyId} userId={profile.id} />
           ) : active === "framex" ? (
             <FramexTracker />
           ) : active === "coord" ? (
-            <ProjectCoordination companyId={profile.company_id} />
+            <ProjectCoordination companyId={effectiveCompanyId} />
           ) : active === "activity" ? (
-            <ActivityModule companyId={profile.company_id} profile={profile} />
+            <ActivityModule companyId={effectiveCompanyId} profile={profile} />
+          ) : active === "hr" ? (
+            <HRModule companyId={effectiveCompanyId} />
           ) : (
             <Active />
           )}

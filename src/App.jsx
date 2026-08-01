@@ -7,6 +7,10 @@ import {
 import { supabase } from "./lib/supabaseClient.js";
 import FormsModule from "./forms/FormsModule.jsx";
 import FramexTracker from "./framex/FramexTracker.jsx";
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar, RadialBarChart, RadialBar, PolarAngleAxis,
+} from "recharts";
 
 /* ---------------------------------------------------------
    KAUVEX OPS — internal command-center for BOSS BMW rollouts
@@ -407,35 +411,79 @@ function MeasureMonitor() {
     { name: "Operations", target: 90, actual: 76 },
     { name: "Accounts", target: 100, actual: 94 },
   ];
+  const trend = [
+    { month: "Feb", leads: 14, revenue: 5.1 },
+    { month: "Mar", leads: 18, revenue: 5.9 },
+    { month: "Apr", leads: 16, revenue: 6.4 },
+    { month: "May", leads: 21, revenue: 7.0 },
+    { month: "Jun", leads: 24, revenue: 7.6 },
+    { month: "Jul", leads: 27, revenue: 8.4 },
+  ];
+  const healthScore = 82;
+  const gaugeData = [{ name: "Health", value: healthScore, fill: healthScore >= 70 ? COLORS.green : COLORS.amber }];
+
   return (
     <div>
       <SectionHeading eyebrow="Module 04" title="Measure & Monitor" />
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 28 }}>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 22 }}>
         <KpiTile label="Leads Generated" value="27" delta={12} accent={COLORS.blueprint} />
         <KpiTile label="Conversion Rate" value="19.4" unit="%" delta={-3} accent={COLORS.amber} />
         <KpiTile label="Revenue MTD" value="8.4L" delta={6} accent={COLORS.green} />
         <KpiTile label="Team Score" value="7.1" unit="/10" delta={4} accent={COLORS.blueprint} />
       </div>
 
-      <div style={{ fontFamily: "IBM Plex Mono", fontSize: 11, letterSpacing: 0.8, color: COLORS.slate, textTransform: "uppercase", marginBottom: 12 }}>
-        Target vs Actual — This Month
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {funcs.map((f) => (
-          <div key={f.name}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "Inter", fontSize: 13, color: COLORS.ink, marginBottom: 4 }}>
-              <span style={{ fontWeight: 500 }}>{f.name}</span>
-              <span style={{ fontFamily: "IBM Plex Mono", color: COLORS.slate }}>{f.actual} / {f.target}</span>
-            </div>
-            <div style={{ height: 8, background: COLORS.line, borderRadius: 4, overflow: "hidden" }}>
-              <div style={{
-                width: `${Math.min(100, (f.actual / f.target) * 100)}%`, height: "100%",
-                background: f.actual / f.target >= 0.85 ? COLORS.green : COLORS.amber,
-              }} />
-            </div>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 22 }}>
+        <CornerFrame style={{ padding: "18px 20px" }}>
+          <div style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: COLORS.ink, marginBottom: 2 }}>
+            Leads &amp; Revenue Trend
           </div>
-        ))}
+          <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 12 }}>Last 6 months</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={trend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid stroke={COLORS.line} vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: COLORS.slate }} axisLine={{ stroke: COLORS.line }} tickLine={false} />
+              <YAxis tick={{ fontSize: 12, fill: COLORS.slate }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ borderRadius: 10, border: `1px solid ${COLORS.line}`, fontSize: 12.5 }} />
+              <Line type="monotone" dataKey="leads" name="Leads" stroke={COLORS.blueprint} strokeWidth={2.5} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="revenue" name="Revenue (L)" stroke={COLORS.green} strokeWidth={2.5} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </CornerFrame>
+
+        <CornerFrame style={{ padding: "18px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: COLORS.ink, alignSelf: "flex-start" }}>
+            Business Health
+          </div>
+          <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 4, alignSelf: "flex-start" }}>Overall score</div>
+          <ResponsiveContainer width="100%" height={190}>
+            <RadialBarChart innerRadius="72%" outerRadius="100%" data={gaugeData} startAngle={90} endAngle={-270}>
+              <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+              <RadialBar background={{ fill: COLORS.line }} dataKey="value" cornerRadius={20} />
+            </RadialBarChart>
+          </ResponsiveContainer>
+          <div style={{ marginTop: -110, fontFamily: "Space Grotesk", fontSize: 32, fontWeight: 700, color: COLORS.ink }}>{healthScore}</div>
+          <div style={{ marginTop: 100, fontSize: 12, fontWeight: 600, color: healthScore >= 70 ? COLORS.green : COLORS.amber, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            {healthScore >= 70 ? "Healthy" : "Needs Attention"}
+          </div>
+        </CornerFrame>
       </div>
+
+      <CornerFrame style={{ padding: "18px 20px" }}>
+        <div style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: COLORS.ink, marginBottom: 2 }}>
+          Target vs Actual — This Month
+        </div>
+        <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 12 }}>By function</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={funcs} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+            <CartesianGrid stroke={COLORS.line} vertical={false} />
+            <XAxis dataKey="name" tick={{ fontSize: 12, fill: COLORS.slate }} axisLine={{ stroke: COLORS.line }} tickLine={false} />
+            <YAxis tick={{ fontSize: 12, fill: COLORS.slate }} axisLine={false} tickLine={false} />
+            <Tooltip contentStyle={{ borderRadius: 10, border: `1px solid ${COLORS.line}`, fontSize: 12.5 }} />
+            <Bar dataKey="target" name="Target" fill={COLORS.line} radius={[6, 6, 0, 0]} />
+            <Bar dataKey="actual" name="Actual" fill={COLORS.blueprint} radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </CornerFrame>
     </div>
   );
 }

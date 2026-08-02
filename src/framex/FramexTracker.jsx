@@ -320,6 +320,9 @@ function CompanyDetail({ company, onBack }) {
   const [mmiKpiOptions, setMmiKpiOptions] = useState([]);
   const [newMmiTitle, setNewMmiTitle] = useState("");
   const [newMmiKpiId, setNewMmiKpiId] = useState("");
+  const [dailySummaries, setDailySummaries] = useState([]);
+  const [dailySummaryLoading, setDailySummaryLoading] = useState(false);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
   const [loading, setLoading] = useState(true);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteLang, setNoteLang] = useState("en");
@@ -349,8 +352,46 @@ function CompanyDetail({ company, onBack }) {
     if (tab === "compare" && branches.length > 0) loadCompareData();
     if (tab === "krakpi" && krakpiRows.length === 0 && !krakpiLoading) loadKrakpi();
     if (tab === "mmi" && mmiRecords.length === 0 && !mmiLoading) loadMmi();
+    if (tab === "dailysummary" && dailySummaries.length === 0 && !dailySummaryLoading) loadDailySummaries();
     // eslint-disable-next-line
   }, [tab, branches.length]);
+
+  async function loadDailySummaries() {
+    setDailySummaryLoading(true);
+    const { data } = await supabase.from("daily_ai_summaries").select("*").eq("company_id", company.id).order("summary_date", { ascending: false }).limit(30);
+    setDailySummaries(data || []);
+    setDailySummaryLoading(false);
+  }
+
+  async function generateDailySummary() {
+    setGeneratingSummary(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const [{ data: logs }, { data: doneTasks }, { data: inProgressTasks }] = await Promise.all([
+        supabase.from("activity_logs").select("activity_type,description,log_time").eq("company_id", company.id).eq("log_date", today),
+        supabase.from("tasks").select("title").gte("completed_at", `${today}T00:00:00`).lte("completed_at", `${today}T23:59:59`),
+        supabase.from("tasks").select("title").eq("status", "progress"),
+      ]);
+      const logsText = (logs || []).map((l) => `[${l.log_time || ""}] ${l.activity_type}: ${l.description}`).join("\n") || "No activity logged today.";
+      const doneText = (doneTasks || []).map((t) => t.title).join(", ") || "None recorded";
+      const progressText = (inProgressTasks || []).map((t) => t.title).join(", ") || "None recorded";
+      const context = `Company: ${company.name}. Date: ${today}.\n\nToday's activity log:\n${logsText}\n\nTasks completed today: ${doneText}\nTasks still in progress: ${progressText}\n\nWrite ONE short paragraph (4-6 sentences) for the business owner, in plain language, covering: today's highlight, the main challenge faced, and what should be prepared for tomorrow. No headers, no bullet points — a single flowing paragraph.`;
+      const r = await fetch("/api/ai-assist", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: context, action: "polish", language: "en" }),
+      });
+      const data = await r.json();
+      if (data.result) {
+        const { data: saved } = await supabase.from("daily_ai_summaries")
+          .upsert({ company_id: company.id, summary_date: today, summary_text: data.result }, { onConflict: "company_id,summary_date" })
+          .select().single();
+        if (saved) setDailySummaries((s) => [saved, ...s.filter((x) => x.summary_date !== today)]);
+      } else if (data.error) alert(data.error);
+    } catch (e) {
+      alert("AI request failed: " + e.message);
+    }
+    setGeneratingSummary(false);
+  }
 
   async function loadMmi() {
     setMmiLoading(true);
@@ -784,7 +825,7 @@ function CompanyDetail({ company, onBack }) {
       </div>
 
       <div style={{ display: "flex", gap: 4, marginBottom: 22, borderBottom: `1px solid ${COLORS.line}`, flexWrap: "wrap" }}>
-        {[["setup", "Company Setup"], ["branches", "Branches"], ["compare", "Branch Comparison"], ["krakpi", "KRA/KPI Tracker"], ["mmi", "M-M-I Calculator"], ["performance", "Role Performance"], ["weekly", "Weekly Cycle"], ["meetings", "Meeting Room"], ["journey", "6-Stage Journey"], ["bmw", "BOSS BMW Program"], ["pillars", "5 Pillars Matrix"], ["notes", "Notes"], ["appointments", "Appointments"]].map(([k, label]) => (
+        {[["setup", "Company Setup"], ["branches", "Branches"], ["compare", "Branch Comparison"], ["krakpi", "KRA/KPI Tracker"], ["mmi", "M-M-I Calculator"], ["dailysummary", "AI Daily Summary"], ["performance", "Role Performance"], ["weekly", "Weekly Cycle"], ["meetings", "Meeting Room"], ["journey", "6-Stage Journey"], ["bmw", "BOSS BMW Program"], ["pillars", "5 Pillars Matrix"], ["notes", "Notes"], ["appointments", "Appointments"]].map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             padding: "9px 4px", marginRight: 20, background: "none", border: "none", cursor: "pointer",
             borderBottom: tab === k ? `2px solid ${COLORS.blueprint}` : "2px solid transparent",
@@ -1445,6 +1486,38 @@ function CompanyDetail({ company, onBack }) {
                 </div>
               ))}
               {mmiRecords.length === 0 && <div style={{ fontSize: 13, color: COLORS.slate, fontStyle: "italic" }}>No M-M-I cycles yet — start one above.</div>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "dailysummary" && (
+        <div style={{ maxWidth: 760 }}>
+          <div style={{ fontSize: 13, color: COLORS.slate, marginBottom: 16 }}>
+            One AI-written paragraph per day — highlight, challenge, and tomorrow's prep — built from today's activity log and tasks. No manual report writing.
+          </div>
+          <button onClick={generateDailySummary} disabled={generatingSummary} style={{
+            display: "flex", alignItems: "center", gap: 7, padding: "10px 18px", background: COLORS.ink, color: "#fff",
+            border: "none", borderRadius: 2, fontWeight: 600, fontSize: 13, cursor: "pointer", marginBottom: 22,
+          }}>
+            {generatingSummary ? <Loader2 size={14} className="spin" /> : <Sparkles size={14} />}
+            {generatingSummary ? "Generating..." : "Generate Today's Summary"}
+          </button>
+          <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+          {dailySummaryLoading ? (
+            <div style={{ color: COLORS.slate, fontSize: 13 }}>Loading...</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {dailySummaries.map((s) => (
+                <div key={s.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, borderLeft: `3px solid ${COLORS.blueprint}`, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 11.5, color: COLORS.amber, fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>
+                    {new Date(s.summary_date).toLocaleDateString(undefined, { weekday: "long", day: "2-digit", month: "short", year: "numeric" })}
+                  </div>
+                  <div style={{ fontSize: 13.5, color: COLORS.ink, lineHeight: 1.6 }}>{s.summary_text}</div>
+                </div>
+              ))}
+              {dailySummaries.length === 0 && <div style={{ fontSize: 13, color: COLORS.slate, fontStyle: "italic" }}>No summaries yet — generate today's above.</div>}
             </div>
           )}
         </div>

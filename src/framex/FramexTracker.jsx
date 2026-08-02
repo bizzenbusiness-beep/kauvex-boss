@@ -114,8 +114,8 @@ function CompanyList({ onSelect }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
-          <div style={{ fontFamily: "IBM Plex Mono", fontSize: 11, letterSpacing: 1, color: COLORS.amber, textTransform: "uppercase" }}>BizZen Business Framex</div>
-          <h2 style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 22, color: COLORS.ink, margin: "4px 0 0" }}>Implementation Tracker</h2>
+          <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: 1, color: COLORS.amber, textTransform: "uppercase" }}>BizZen Business Framex</div>
+          <h2 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 600, fontSize: 22, color: COLORS.ink, margin: "4px 0 0" }}>Implementation Tracker</h2>
         </div>
         <button onClick={() => setShowAdd((s) => !s)} style={{
           display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", background: COLORS.ink, color: "#fff",
@@ -149,9 +149,9 @@ function CompanyList({ onSelect }) {
                 borderRadius: 2, padding: "14px 16px", cursor: "pointer",
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                  <div style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14.5, color: COLORS.ink }}>{c.name}</div>
+                  <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 14.5, color: COLORS.ink }}>{c.name}</div>
                   {c.bfsp_category && (
-                    <span style={{ fontFamily: "IBM Plex Mono", fontSize: 9.5, color: COLORS.blueprint, border: `1px solid ${COLORS.blueprint}`, borderRadius: 10, padding: "1px 7px", whiteSpace: "nowrap" }}>
+                    <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 9.5, color: COLORS.blueprint, border: `1px solid ${COLORS.blueprint}`, borderRadius: 10, padding: "1px 7px", whiteSpace: "nowrap" }}>
                       {BFSP_STAGES.find((b) => b.key === c.bfsp_category)?.label}
                     </span>
                   )}
@@ -291,7 +291,7 @@ function CompanyDetail({ company, onBack }) {
         <ChevronLeft size={15} /> Back to clients
       </button>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
-        <h2 style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 21, color: COLORS.ink, margin: 0 }}>{company.name}</h2>
+        <h2 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 600, fontSize: 21, color: COLORS.ink, margin: 0 }}>{company.name}</h2>
         <div style={{ display: "flex", gap: 6 }}>
           {BFSP_STAGES.map((b) => (
             <button key={b.key} onClick={() => updateBfsp(b.key)} title={b.full} style={{
@@ -328,7 +328,7 @@ function CompanyDetail({ company, onBack }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                   <div>
                     <div style={{ fontSize: 11, color: COLORS.amber, fontWeight: 700 }}>STAGE {i + 1}</div>
-                    <div style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14.5, color: COLORS.ink, margin: "2px 0" }}>{meta.label}</div>
+                    <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 14.5, color: COLORS.ink, margin: "2px 0" }}>{meta.label}</div>
                     <div style={{ fontSize: 12.5, color: COLORS.slate }}>{meta.desc}</div>
                   </div>
                   <StatusChip status={s.status} onChange={(val) => updateStage(s.id, val)} />
@@ -347,7 +347,7 @@ function CompanyDetail({ company, onBack }) {
               <div key={b.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, borderLeft: `3px solid ${COLORS.blueprint}`, padding: "13px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                   <div>
-                    <div style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14.5, color: COLORS.ink }}>{meta.label}</div>
+                    <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 14.5, color: COLORS.ink }}>{meta.label}</div>
                     <div style={{ fontSize: 12.5, color: COLORS.slate }}>{meta.desc}</div>
                   </div>
                   <StatusChip status={b.status} onChange={(val) => updateBmw(b.id, val)} />
@@ -437,7 +437,7 @@ function CompanyDetail({ company, onBack }) {
               value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)}
               placeholder="Add a note about this client — type, speak, or paste, then AI Polish / Translate if you like..."
               rows={3}
-              style={{ flex: 1, padding: "9px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13.5, resize: "vertical", fontFamily: "Inter" }}
+              style={{ flex: 1, padding: "9px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13.5, resize: "vertical", fontFamily: "'Helvetica Neue', Arial, sans-serif" }}
             />
             <button onClick={addNote} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontWeight: 600, fontSize: 13, cursor: "pointer", alignSelf: "flex-start" }}>
               <Plus size={14} /> Add

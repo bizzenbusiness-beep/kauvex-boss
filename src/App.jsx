@@ -1,16 +1,14 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, Suspense, lazy } from "react";
 import {
   LayoutGrid, Users, Activity, Gauge, TrendingUp,
   Plus, Circle, Clock, CheckCircle2, ChevronRight, Building2,
   LogOut, Lock, Loader2, AlertCircle, FileText, Map
 } from "lucide-react";
 import { supabase } from "./lib/supabaseClient.js";
-import FormsModule from "./forms/FormsModule.jsx";
-import FramexTracker from "./framex/FramexTracker.jsx";
-import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  BarChart, Bar, RadialBarChart, RadialBar, PolarAngleAxis,
-} from "recharts";
+
+const FormsModule = lazy(() => import("./forms/FormsModule.jsx"));
+const FramexTracker = lazy(() => import("./framex/FramexTracker.jsx"));
+const MeasureMonitor = lazy(() => import("./MeasureMonitor.jsx"));
 
 /* ---------------------------------------------------------
    KAUVEX OPS — internal command-center for BOSS BMW rollouts
@@ -18,33 +16,33 @@ import {
    corner tick-marks like architectural drawings, mono data type.
 --------------------------------------------------------- */
 
-const FONT_IMPORT = `
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
-`;
+const FONT_IMPORT = ``; // no external font fetch — system Georgia + sans for speed
+
+const FONT_SERIF = "Georgia, 'Times New Roman', serif";
+const FONT_SANS = "'Helvetica Neue', Arial, sans-serif";
 
 const COLORS = {
-  ink: "#0E0E0E",
+  ink: "#111111",
   paper: "#F7F5F0",
   card: "#FFFFFF",
-  blueprint: "#B7862B",
-  blueprintSoft: "#FBF1DD",
-  amber: "#B7862B",
-  amberSoft: "#FBF1DD",
-  slate: "#6B6458",
-  green: "#16A34A",
-  greenSoft: "#E9F9EF",
-  red: "#DC2626",
-  redSoft: "#FDEAEA",
-  line: "#E9E4D8",
-  gold: "#C99A3C",
+  blueprint: "#A8792F",
+  blueprintSoft: "#F3EADA",
+  amber: "#A8792F",
+  amberSoft: "#F3EADA",
+  slate: "#7A7568",
+  green: "#2F7D52",
+  greenSoft: "#E9F3EC",
+  red: "#B23B2E",
+  redSoft: "#F7E9E7",
+  line: "#E7E2D6",
+  gold: "#C9A35C",
   goldDeep: "#8A6420",
 };
 
 function CornerFrame({ children, accent = COLORS.blueprint, style = {} }) {
   return (
     <div style={{
-      background: COLORS.card, borderRadius: 14, border: `1px solid ${COLORS.line}`,
-      boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 1px 8px rgba(16,24,40,0.03)",
+      background: COLORS.card, borderRadius: 2, border: `1px solid ${COLORS.line}`,
       ...style,
     }}>
       {children}
@@ -55,15 +53,15 @@ function CornerFrame({ children, accent = COLORS.blueprint, style = {} }) {
 function KpiTile({ label, value, unit, delta, accent }) {
   const up = delta >= 0;
   return (
-    <CornerFrame accent={accent} style={{ background: COLORS.card, padding: "18px 20px", flex: 1, minWidth: 180 }}>
-      <div style={{ fontFamily: "Inter", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: COLORS.slate, marginBottom: 10 }}>
+    <CornerFrame accent={accent} style={{ background: COLORS.card, padding: "22px 18px", flex: 1, minWidth: 180 }}>
+      <div style={{ fontFamily: FONT_SANS, fontSize: 10, letterSpacing: 1, textTransform: "uppercase", color: COLORS.slate }}>
         {label}
       </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-        <span style={{ fontFamily: "IBM Plex Mono", fontSize: 30, fontWeight: 500, color: COLORS.ink }}>{value}</span>
-        {unit && <span style={{ fontFamily: "IBM Plex Mono", fontSize: 14, color: COLORS.slate }}>{unit}</span>}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 10 }}>
+        <span style={{ fontFamily: FONT_SERIF, fontSize: 30, fontWeight: 600, color: COLORS.ink }}>{value}</span>
+        {unit && <span style={{ fontFamily: FONT_SERIF, fontSize: 15, color: COLORS.slate }}>{unit}</span>}
       </div>
-      <div style={{ fontFamily: "IBM Plex Mono", fontSize: 12, marginTop: 8, color: up ? COLORS.green : COLORS.red }}>
+      <div style={{ fontFamily: FONT_SANS, fontSize: 11, marginTop: 8, letterSpacing: 0.3, color: up ? COLORS.green : COLORS.red }}>
         {up ? "▲" : "▼"} {Math.abs(delta)}% vs last month
       </div>
     </CornerFrame>
@@ -73,10 +71,10 @@ function KpiTile({ label, value, unit, delta, accent }) {
 function SectionHeading({ eyebrow, title }) {
   return (
     <div style={{ marginBottom: 22 }}>
-      <div style={{ fontFamily: "IBM Plex Mono", fontSize: 11, letterSpacing: 1.5, color: COLORS.amber, textTransform: "uppercase", marginBottom: 4 }}>
+      <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: 1.5, color: COLORS.amber, textTransform: "uppercase", marginBottom: 4 }}>
         {eyebrow}
       </div>
-      <h2 style={{ fontFamily: "Space Grotesk", fontSize: 24, fontWeight: 600, color: COLORS.ink, margin: 0 }}>{title}</h2>
+      <h2 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 24, fontWeight: 600, color: COLORS.ink, margin: 0 }}>{title}</h2>
     </div>
   );
 }
@@ -174,7 +172,7 @@ function ProjectCoordination({ companyId }) {
           placeholder="Add a task — e.g. Site visit, Palakkad"
           style={{
             flex: 1, padding: "10px 14px", border: `1px solid ${COLORS.line}`,
-            fontFamily: "Inter", fontSize: 14, background: COLORS.card, borderRadius: 2,
+            fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 14, background: COLORS.card, borderRadius: 2,
           }}
         />
         <button
@@ -182,7 +180,7 @@ function ProjectCoordination({ companyId }) {
           style={{
             display: "flex", alignItems: "center", gap: 6, padding: "10px 16px",
             background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2,
-            fontFamily: "Inter", fontWeight: 600, fontSize: 13, cursor: "pointer",
+            fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 13, cursor: "pointer",
           }}
         >
           <Plus size={15} /> Add
@@ -199,7 +197,7 @@ function ProjectCoordination({ companyId }) {
               <div key={key}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
                   <Icon size={14} color={accent} />
-                  <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase", color: accent }}>
+                  <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase", color: accent }}>
                     {label} · {colTasks.length}
                   </span>
                 </div>
@@ -211,7 +209,7 @@ function ProjectCoordination({ companyId }) {
                       title="Click to move to next status"
                       style={{
                         background: COLORS.card, border: `1px solid ${COLORS.line}`, borderLeft: `3px solid ${accent}`,
-                        padding: "10px 12px", fontFamily: "Inter", fontSize: 13.5, color: COLORS.ink, borderRadius: 8,
+                        padding: "10px 12px", fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 13.5, color: COLORS.ink, borderRadius: 8,
                         textAlign: "left", cursor: "pointer", display: "block", width: "100%",
                       }}
                     >
@@ -230,7 +228,7 @@ function ProjectCoordination({ companyId }) {
                     </button>
                   ))}
                   {colTasks.length === 0 && (
-                    <div style={{ fontFamily: "Inter", fontSize: 12.5, color: COLORS.slate, fontStyle: "italic" }}>Nothing here yet</div>
+                    <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 12.5, color: COLORS.slate, fontStyle: "italic" }}>Nothing here yet</div>
                   )}
                 </div>
               </div>
@@ -314,7 +312,7 @@ function HRModule({ companyId }) {
         <div style={{ color: COLORS.slate, fontSize: 13 }}>Loading team...</div>
       ) : (
       <CornerFrame style={{ background: COLORS.card, padding: 0, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "Inter" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>
           <thead>
             <tr style={{ background: COLORS.ink }}>
               {["Name", "Role", "Department", "Happiness"].map((h) => (
@@ -334,7 +332,7 @@ function HRModule({ companyId }) {
                       <div style={{ width: 70, height: 6, background: COLORS.line, borderRadius: 3, overflow: "hidden" }}>
                         <div style={{ width: `${t.happiness_score * 10}%`, height: "100%", background: t.happiness_score >= 7 ? COLORS.green : COLORS.amber }} />
                       </div>
-                      <span style={{ fontFamily: "IBM Plex Mono", fontSize: 12, color: COLORS.slate }}>{t.happiness_score}/10</span>
+                      <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: COLORS.slate }}>{t.happiness_score}/10</span>
                     </div>
                   ) : <span style={{ fontSize: 12, color: COLORS.slate }}>—</span>}
                 </td>
@@ -430,7 +428,7 @@ function ActivityModule({ companyId, profile }) {
           style={{
             padding: "9px 16px", borderRadius: 2, border: "none", cursor: checkedIn ? "default" : "pointer",
             background: checkedIn ? COLORS.line : COLORS.green, color: checkedIn ? COLORS.slate : "#fff",
-            fontFamily: "Inter", fontWeight: 600, fontSize: 13,
+            fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 13,
           }}
         >
           {checkedIn ? "Checked In ✓" : "Check In"}
@@ -441,7 +439,7 @@ function ActivityModule({ companyId, profile }) {
           style={{
             padding: "9px 16px", borderRadius: 2, border: `1px solid ${COLORS.red}`, cursor: !checkedIn ? "default" : "pointer",
             background: "#fff", color: !checkedIn ? COLORS.line : COLORS.red,
-            fontFamily: "Inter", fontWeight: 600, fontSize: 13,
+            fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 13,
           }}
         >
           Check Out
@@ -454,12 +452,12 @@ function ActivityModule({ companyId, profile }) {
           onChange={(e) => setNote(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSubmitLog()}
           placeholder="Log a task / workflow update — e.g. Reviewed steel delivery schedule"
-          style={{ flex: 1, padding: "10px 14px", border: `1px solid ${COLORS.line}`, fontFamily: "Inter", fontSize: 14, background: COLORS.card, borderRadius: 2 }}
+          style={{ flex: 1, padding: "10px 14px", border: `1px solid ${COLORS.line}`, fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 14, background: COLORS.card, borderRadius: 2 }}
         />
         <button
           onClick={handleSubmitLog}
           disabled={posting}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontFamily: "Inter", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
         >
           <Plus size={15} /> Submit
         </button>
@@ -471,14 +469,14 @@ function ActivityModule({ companyId, profile }) {
         <div style={{ display: "flex", flexDirection: "column" }}>
           {logs.map((l, i) => (
             <div key={l.id || i} style={{ display: "flex", gap: 16, padding: "12px 0", borderTop: i ? `1px solid ${COLORS.line}` : "none" }}>
-              <div style={{ fontFamily: "IBM Plex Mono", fontSize: 12.5, color: COLORS.slate, width: 60 }}>{(l.log_time || "").slice(0, 5)}</div>
+              <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12.5, color: COLORS.slate, width: 60 }}>{(l.log_time || "").slice(0, 5)}</div>
               <div style={{
-                fontFamily: "IBM Plex Mono", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5,
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5,
                 color: "#fff", background: tagColor[l.activity_type] || COLORS.slate, padding: "2px 8px", borderRadius: 2, height: 18, width: 86, textAlign: "center",
               }}>
                 {l.activity_type}
               </div>
-              <div style={{ fontFamily: "Inter", fontSize: 13.5, color: COLORS.ink, flex: 1 }}>{l.description}</div>
+              <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 13.5, color: COLORS.ink, flex: 1 }}>{l.description}</div>
             </div>
           ))}
           {logs.length === 0 && <div style={{ fontSize: 13, color: COLORS.slate, fontStyle: "italic" }}>No activity logged today yet.</div>}
@@ -486,91 +484,6 @@ function ActivityModule({ companyId, profile }) {
       )}
       </>
       )}
-    </div>
-  );
-}
-
-/* ---------------- MEASURE & MONITOR ---------------- */
-function MeasureMonitor() {
-  const funcs = [
-    { name: "Marketing", target: 40, actual: 27 },
-    { name: "Sales", target: 12, actual: 8 },
-    { name: "Operations", target: 90, actual: 76 },
-    { name: "Accounts", target: 100, actual: 94 },
-  ];
-  const trend = [
-    { month: "Feb", leads: 14, revenue: 5.1 },
-    { month: "Mar", leads: 18, revenue: 5.9 },
-    { month: "Apr", leads: 16, revenue: 6.4 },
-    { month: "May", leads: 21, revenue: 7.0 },
-    { month: "Jun", leads: 24, revenue: 7.6 },
-    { month: "Jul", leads: 27, revenue: 8.4 },
-  ];
-  const healthScore = 82;
-  const gaugeData = [{ name: "Health", value: healthScore, fill: healthScore >= 70 ? COLORS.green : COLORS.amber }];
-
-  return (
-    <div>
-      <SectionHeading eyebrow="Module 04" title="Measure & Monitor" />
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 22 }}>
-        <KpiTile label="Leads Generated" value="27" delta={12} accent={COLORS.blueprint} />
-        <KpiTile label="Conversion Rate" value="19.4" unit="%" delta={-3} accent={COLORS.amber} />
-        <KpiTile label="Revenue MTD" value="8.4L" delta={6} accent={COLORS.green} />
-        <KpiTile label="Team Score" value="7.1" unit="/10" delta={4} accent={COLORS.blueprint} />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 22 }}>
-        <CornerFrame style={{ padding: "18px 20px" }}>
-          <div style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: COLORS.ink, marginBottom: 2 }}>
-            Leads &amp; Revenue Trend
-          </div>
-          <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 12 }}>Last 6 months</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={trend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid stroke={COLORS.line} vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: COLORS.slate }} axisLine={{ stroke: COLORS.line }} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: COLORS.slate }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ borderRadius: 10, border: `1px solid ${COLORS.line}`, fontSize: 12.5 }} />
-              <Line type="monotone" dataKey="leads" name="Leads" stroke={COLORS.blueprint} strokeWidth={2.5} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="revenue" name="Revenue (L)" stroke={COLORS.green} strokeWidth={2.5} dot={{ r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </CornerFrame>
-
-        <CornerFrame style={{ padding: "18px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: COLORS.ink, alignSelf: "flex-start" }}>
-            Business Health
-          </div>
-          <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 4, alignSelf: "flex-start" }}>Overall score</div>
-          <ResponsiveContainer width="100%" height={190}>
-            <RadialBarChart innerRadius="72%" outerRadius="100%" data={gaugeData} startAngle={90} endAngle={-270}>
-              <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-              <RadialBar background={{ fill: COLORS.line }} dataKey="value" cornerRadius={20} />
-            </RadialBarChart>
-          </ResponsiveContainer>
-          <div style={{ marginTop: -110, fontFamily: "Space Grotesk", fontSize: 32, fontWeight: 700, color: COLORS.ink }}>{healthScore}</div>
-          <div style={{ marginTop: 100, fontSize: 12, fontWeight: 600, color: healthScore >= 70 ? COLORS.green : COLORS.amber, textTransform: "uppercase", letterSpacing: 0.5 }}>
-            {healthScore >= 70 ? "Healthy" : "Needs Attention"}
-          </div>
-        </CornerFrame>
-      </div>
-
-      <CornerFrame style={{ padding: "18px 20px" }}>
-        <div style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: COLORS.ink, marginBottom: 2 }}>
-          Target vs Actual — This Month
-        </div>
-        <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 12 }}>By function</div>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={funcs} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid stroke={COLORS.line} vertical={false} />
-            <XAxis dataKey="name" tick={{ fontSize: 12, fill: COLORS.slate }} axisLine={{ stroke: COLORS.line }} tickLine={false} />
-            <YAxis tick={{ fontSize: 12, fill: COLORS.slate }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ borderRadius: 10, border: `1px solid ${COLORS.line}`, fontSize: 12.5 }} />
-            <Bar dataKey="target" name="Target" fill={COLORS.line} radius={[6, 6, 0, 0]} />
-            <Bar dataKey="actual" name="Actual" fill={COLORS.blueprint} radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </CornerFrame>
     </div>
   );
 }
@@ -591,27 +504,27 @@ function ImprovementCalc() {
       <CornerFrame accent={COLORS.blueprint} style={{ background: COLORS.card, padding: 24, maxWidth: 480 }}>
         <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
           <label style={{ flex: 1 }}>
-            <div style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>Before (baseline)</div>
+            <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>Before (baseline)</div>
             <input
               type="number" value={before} onChange={(e) => setBefore(Number(e.target.value))}
-              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, fontFamily: "IBM Plex Mono", fontSize: 16, borderRadius: 2 }}
+              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 16, borderRadius: 2 }}
             />
           </label>
           <label style={{ flex: 1 }}>
-            <div style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>After (current)</div>
+            <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>After (current)</div>
             <input
               type="number" value={after} onChange={(e) => setAfter(Number(e.target.value))}
-              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, fontFamily: "IBM Plex Mono", fontSize: 16, borderRadius: 2 }}
+              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 16, borderRadius: 2 }}
             />
           </label>
         </div>
         <div style={{ borderTop: `1px solid ${COLORS.line}`, paddingTop: 16, display: "flex", alignItems: "baseline", gap: 10 }}>
-          <span style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.slate }}>Improvement</span>
-          <span style={{ fontFamily: "Space Grotesk", fontSize: 32, fontWeight: 700, color: positive ? COLORS.green : COLORS.red }}>
+          <span style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 13, color: COLORS.slate }}>Improvement</span>
+          <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 32, fontWeight: 700, color: positive ? COLORS.green : COLORS.red }}>
             {positive ? "+" : ""}{improvement}%
           </span>
         </div>
-        <div style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.slate, marginTop: 8 }}>
+        <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 12, color: COLORS.slate, marginTop: 8 }}>
           Use this for any metric — leads, revenue, conversion rate, productive hours — to show progress at review time.
         </div>
       </CornerFrame>
@@ -677,7 +590,7 @@ function Login() {
 
   return (
     <div style={{
-      minHeight: "100vh", background: COLORS.ink, fontFamily: "Inter",
+      minHeight: "100vh", background: COLORS.ink, fontFamily: "'Helvetica Neue', Arial, sans-serif",
       display: "flex", alignItems: "center", justifyContent: "center",
       backgroundImage:
         "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)",
@@ -687,10 +600,10 @@ function Login() {
       <CornerFrame accent={COLORS.amber} style={{ background: COLORS.card, padding: "36px 34px", width: 360 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 26 }}>
           <Building2 color={COLORS.blueprint} size={22} />
-          <span style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 20, color: COLORS.ink }}>KAUVEX</span>
-          <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: COLORS.amber, marginLeft: 2 }}>OPS</span>
+          <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 700, fontSize: 20, color: COLORS.ink }}>KAUVEX</span>
+          <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, color: COLORS.amber, marginLeft: 2 }}>OPS</span>
         </div>
-        <div style={{ fontFamily: "IBM Plex Mono", fontSize: 11, letterSpacing: 0.8, color: COLORS.slate, textTransform: "uppercase", marginBottom: 20 }}>
+        <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: 0.8, color: COLORS.slate, textTransform: "uppercase", marginBottom: 20 }}>
           Sign in to your workspace
         </div>
 
@@ -700,7 +613,7 @@ function Login() {
             <input
               type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
-              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "Inter", fontSize: 14, boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 14, boxSizing: "border-box" }}
             />
           </label>
           <label style={{ display: "block", marginBottom: 18 }}>
@@ -708,7 +621,7 @@ function Login() {
             <input
               type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "Inter", fontSize: 14, boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 14, boxSizing: "border-box" }}
             />
           </label>
 
@@ -724,7 +637,7 @@ function Login() {
             style={{
               width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
               padding: "11px 16px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2,
-              fontFamily: "Inter", fontWeight: 600, fontSize: 14, cursor: loading ? "default" : "pointer",
+              fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 14, cursor: loading ? "default" : "pointer",
               opacity: loading ? 0.7 : 1,
             }}
           >
@@ -733,7 +646,7 @@ function Login() {
           </button>
         </form>
 
-        <div style={{ fontFamily: "Inter", fontSize: 11.5, color: COLORS.slate, marginTop: 18, lineHeight: 1.5 }}>
+        <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 11.5, color: COLORS.slate, marginTop: 18, lineHeight: 1.5 }}>
           Accounts are created by invite only. If you don't have one yet,
           contact your Kauvex admin.
         </div>
@@ -746,11 +659,11 @@ function Login() {
 /* ---------------- NO PROFILE / PENDING ACCESS SCREEN ---------------- */
 function PendingAccess({ email, onSignOut }) {
   return (
-    <div style={{ minHeight: "100vh", background: COLORS.paper, fontFamily: "Inter", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ minHeight: "100vh", background: COLORS.paper, fontFamily: "'Helvetica Neue', Arial, sans-serif", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <style>{FONT_IMPORT}</style>
       <CornerFrame accent={COLORS.amber} style={{ background: COLORS.card, padding: "32px 30px", width: 380, textAlign: "center" }}>
         <Lock size={22} color={COLORS.amber} style={{ marginBottom: 12 }} />
-        <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 17, color: COLORS.ink, marginBottom: 8 }}>
+        <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 600, fontSize: 17, color: COLORS.ink, marginBottom: 8 }}>
           Access pending
         </div>
         <div style={{ fontSize: 13, color: COLORS.slate, lineHeight: 1.6, marginBottom: 20 }}>
@@ -760,7 +673,7 @@ function PendingAccess({ email, onSignOut }) {
         </div>
         <button
           onClick={onSignOut}
-          style={{ padding: "9px 18px", background: "transparent", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "Inter", fontSize: 13, color: COLORS.ink, cursor: "pointer" }}
+          style={{ padding: "9px 18px", background: "transparent", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 13, color: COLORS.ink, cursor: "pointer" }}
         >
           Sign out
         </button>
@@ -804,89 +717,95 @@ function Dashboard({ profile, onSignOut }) {
   const activeItem = nav.find((n) => n.key === active) || nav[0];
   const Active = activeItem.Comp;
 
-  return (
-    <div style={{ minHeight: "100vh", background: COLORS.paper, fontFamily: "Inter" }}>
-      <style>{FONT_IMPORT}</style>
+  const todayLabel = new Date().toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  const NAV_LABELS_MAP = Object.fromEntries(NAV.map((n) => [n.key, n.label]));
 
-      <div style={{
-        background: COLORS.ink, padding: "16px 28px", display: "flex", alignItems: "center",
-        justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.06)",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Building2 color={COLORS.amber} size={18} />
-          </div>
-          <span style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 18, color: "#fff", letterSpacing: 0.3 }}>KAUVEX</span>
-          <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: COLORS.amber, marginLeft: 2 }}>OPS</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {isKauvexStaff && (
-            <select
-              value={selectedCompanyId || ""}
-              onChange={(e) => setSelectedCompanyId(e.target.value)}
-              style={{
-                padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)",
-                background: "rgba(255,255,255,0.08)", color: "#fff", fontFamily: "Inter", fontSize: 12.5, fontWeight: 500,
-              }}
-            >
-              {companies.length === 0 && <option value="">No clients yet</option>}
-              {companies.map((c) => (
-                <option key={c.id} value={c.id} style={{ color: "#000" }}>{c.name}</option>
-              ))}
-            </select>
-          )}
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontFamily: "Inter", fontSize: 13, color: "#fff", fontWeight: 600 }}>
-              {profile.full_name}
-            </div>
-            <div style={{ fontFamily: "Inter", fontSize: 11.5, color: isKauvexStaff ? COLORS.amber : "#9AA5B5" }}>
-              {ROLE_LABELS[profile.role] || profile.role}
-            </div>
-          </div>
-          <button
-            onClick={onSignOut}
-            title="Sign out"
-            style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-              background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 8, color: "#E4E8EF", fontFamily: "Inter", fontSize: 12.5, fontWeight: 500, cursor: "pointer",
-            }}
-          >
-            <LogOut size={13} /> Sign out
-          </button>
-        </div>
-      </div>
+  return (
+    <div style={{ minHeight: "100vh", background: COLORS.paper, fontFamily: FONT_SANS }}>
+      <style>{FONT_IMPORT}</style>
 
       <div style={{ display: "flex" }}>
         {/* Sidebar */}
-        <div style={{ width: 240, background: "#fff", borderRight: `1px solid ${COLORS.line}`, minHeight: "calc(100vh - 66px)", padding: "16px 12px" }}>
-          {nav.map(({ key, label, icon: Icon }) => {
-            const isActive = key === active;
-            return (
-              <button
-                key={key}
-                onClick={() => setActive(key)}
+        <div style={{ width: 260, background: "#fff", borderRight: `1px solid ${COLORS.line}`, minHeight: "100vh", padding: "34px 26px", display: "flex", flexDirection: "column", gap: 26 }}>
+          <div style={{ fontFamily: FONT_SERIF, fontSize: 15, letterSpacing: 3, textTransform: "uppercase", color: COLORS.ink }}>
+            KAUVEX <span style={{ color: COLORS.gold }}>OPS</span>
+          </div>
+
+          {isKauvexStaff && (
+            <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 2, padding: 16 }}>
+              <div style={{ fontSize: 9.5, color: COLORS.slate, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>Viewing Client</div>
+              <select
+                value={selectedCompanyId || ""}
+                onChange={(e) => setSelectedCompanyId(e.target.value)}
                 style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 10,
-                  padding: "10px 14px", border: "none", background: isActive ? COLORS.blueprintSoft : "transparent",
-                  borderRadius: 10, marginBottom: 3,
-                  cursor: "pointer", textAlign: "left",
+                  width: "100%", background: COLORS.paper, border: `1px solid ${COLORS.line}`, color: COLORS.ink,
+                  padding: "9px 10px", borderRadius: 2, fontSize: 12.5, fontFamily: FONT_SANS,
                 }}
               >
-                <Icon size={16} color={isActive ? COLORS.blueprint : COLORS.slate} />
-                <span style={{
-                  fontFamily: "Inter", fontSize: 13.5, fontWeight: isActive ? 600 : 500,
-                  color: isActive ? COLORS.blueprint : COLORS.slate,
-                }}>
+                {companies.length === 0 && <option value="">No clients yet</option>}
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <nav style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 4 }}>
+            {nav.map(({ key, label }) => {
+              const isActive = key === active;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActive(key)}
+                  style={{
+                    color: isActive ? COLORS.ink : COLORS.slate, textDecoration: "none", background: "none", border: "none",
+                    padding: "11px 4px", fontSize: 12.5, letterSpacing: 0.4, textTransform: "uppercase", textAlign: "left",
+                    borderBottom: isActive ? `1px solid ${COLORS.gold}` : "1px solid transparent",
+                    fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: FONT_SANS,
+                  }}
+                >
                   {label}
-                </span>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div style={{ marginTop: "auto", paddingTop: 20, borderTop: `1px solid ${COLORS.line}` }}>
+            <div style={{ fontSize: 13, color: COLORS.ink, fontWeight: 600, marginBottom: 2 }}>{profile.full_name}</div>
+            <div style={{ fontSize: 11, color: COLORS.gold, marginBottom: 14 }}>{ROLE_LABELS[profile.role] || profile.role}</div>
+            <button
+              onClick={onSignOut}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", width: "100%", justifyContent: "center",
+                background: COLORS.paper, border: `1px solid ${COLORS.line}`, borderRadius: 2, color: COLORS.slate,
+                fontFamily: FONT_SANS, fontSize: 12, fontWeight: 500, cursor: "pointer",
+              }}
+            >
+              <LogOut size={13} /> Sign out
+            </button>
+          </div>
         </div>
 
         {/* Main */}
-        <div style={{ flex: 1, padding: "32px 36px" }}>
+        <div style={{ flex: 1, padding: "40px 48px" }}>
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 32,
+            borderBottom: `1px solid ${COLORS.line}`, paddingBottom: 20,
+          }}>
+            <div>
+              <h1 style={{ fontFamily: FONT_SERIF, fontSize: 26, margin: 0, color: COLORS.ink, fontWeight: 400 }}>
+                {NAV_LABELS_MAP[active] || "Dashboard"}
+              </h1>
+              <div style={{ color: COLORS.slate, fontSize: 12, marginTop: 6, letterSpacing: 0.3 }}>
+                {isKauvexStaff ? "Platform view · all clients" : "Company workspace"}
+              </div>
+            </div>
+            <div style={{ border: `1px solid ${COLORS.gold}`, color: COLORS.gold, padding: "6px 16px", borderRadius: 2, fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase" }}>
+              {todayLabel}
+            </div>
+          </div>
+
+          <Suspense fallback={<div style={{ color: COLORS.slate, fontSize: 13 }}>Loading...</div>}>
           {active === "forms" ? (
             <FormsModule companyId={effectiveCompanyId} userId={profile.id} />
           ) : active === "framex" ? (
@@ -900,6 +819,7 @@ function Dashboard({ profile, onSignOut }) {
           ) : (
             <Active />
           )}
+          </Suspense>
         </div>
       </div>
     </div>

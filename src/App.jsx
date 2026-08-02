@@ -137,8 +137,18 @@ function ProjectCoordination({ companyId }) {
   async function cycleStatus(task) {
     const order = ["todo", "progress", "done"];
     const next = order[(order.indexOf(task.status) + 1) % order.length];
-    setTasks((ts) => ts.map((t) => (t.id === task.id ? { ...t, status: next } : t)));
-    await supabase.from("tasks").update({ status: next, updated_at: new Date().toISOString() }).eq("id", task.id);
+    const now = new Date().toISOString();
+    const patch = { status: next, updated_at: now };
+    if (next === "progress" && !task.started_at) patch.started_at = now;
+    if (next === "done" && !task.completed_at) patch.completed_at = now;
+    setTasks((ts) => ts.map((t) => (t.id === task.id ? { ...t, ...patch } : t)));
+    await supabase.from("tasks").update(patch).eq("id", task.id);
+  }
+
+  function fmt(ts) {
+    if (!ts) return null;
+    const d = new Date(ts);
+    return d.toLocaleDateString(undefined, { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
 
   const colMeta = [
@@ -201,11 +211,22 @@ function ProjectCoordination({ companyId }) {
                       title="Click to move to next status"
                       style={{
                         background: COLORS.card, border: `1px solid ${COLORS.line}`, borderLeft: `3px solid ${accent}`,
-                        padding: "10px 12px", fontFamily: "Inter", fontSize: 13.5, color: COLORS.ink, borderRadius: 2,
-                        textAlign: "left", cursor: "pointer",
+                        padding: "10px 12px", fontFamily: "Inter", fontSize: 13.5, color: COLORS.ink, borderRadius: 8,
+                        textAlign: "left", cursor: "pointer", display: "block", width: "100%",
                       }}
                     >
-                      {t.title}
+                      <div>{t.title}</div>
+                      <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+                        {t.created_at && (
+                          <div style={{ fontSize: 10.5, color: COLORS.slate }}>Given: {fmt(t.created_at)}</div>
+                        )}
+                        {t.started_at && (
+                          <div style={{ fontSize: 10.5, color: COLORS.amber }}>Started: {fmt(t.started_at)}</div>
+                        )}
+                        {t.completed_at && (
+                          <div style={{ fontSize: 10.5, color: COLORS.green }}>Completed: {fmt(t.completed_at)}</div>
+                        )}
+                      </div>
                     </button>
                   ))}
                   {colTasks.length === 0 && (

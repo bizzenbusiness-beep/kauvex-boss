@@ -18,8 +18,8 @@ const MeasureMonitor = lazy(() => import("./MeasureMonitor.jsx"));
 
 const FONT_IMPORT = ``; // no external font fetch — system Georgia + sans for speed
 
-const FONT_SERIF = "Georgia, 'Times New Roman', serif";
-const FONT_SANS = "'Helvetica Neue', Arial, sans-serif";
+const FONT_SERIF = "'Fraunces', Georgia, serif";
+const FONT_SANS = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 const COLORS = {
   ink: "#111111",
@@ -74,17 +74,28 @@ function SectionHeading({ eyebrow, title }) {
       <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: 1.5, color: COLORS.amber, textTransform: "uppercase", marginBottom: 4 }}>
         {eyebrow}
       </div>
-      <h2 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 24, fontWeight: 600, color: COLORS.ink, margin: 0 }}>{title}</h2>
+      <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 24, fontWeight: 600, color: COLORS.ink, margin: 0 }}>{title}</h2>
     </div>
   );
 }
 
 /* ---------------- PROJECT COORDINATION ---------------- */
-function ProjectCoordination({ companyId }) {
+function ProjectCoordination({ companyId, profile }) {
   const [projectId, setProjectId] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(!!companyId);
+  const [branches, setBranches] = useState([]);
+  const [branchFilter, setBranchFilter] = useState("");
+
+  const isAdmin = profile ? hasFullVisibility(profile.role) : true;
+  const workerBranchId = profile && !isAdmin ? profile.branch_id : null;
+
+  useEffect(() => {
+    if (!companyId || !isAdmin) return;
+    supabase.from("branches").select("id,name").eq("company_id", companyId).order("name").then(({ data }) => setBranches(data || []));
+    // eslint-disable-next-line
+  }, [companyId]);
 
   useEffect(() => {
     if (!companyId) { setLoading(false); return; }
@@ -109,23 +120,23 @@ function ProjectCoordination({ companyId }) {
       if (cancelled) return;
       setProjectId(pid);
       if (pid) {
-        const { data: taskRows } = await supabase
-          .from("tasks")
-          .select("*")
-          .eq("project_id", pid)
-          .order("created_at", { ascending: true });
+        let query = supabase.from("tasks").select("*").eq("project_id", pid).order("created_at", { ascending: true });
+        if (workerBranchId) query = query.eq("branch_id", workerBranchId);
+        else if (isAdmin && branchFilter) query = query.eq("branch_id", branchFilter);
+        const { data: taskRows } = await query;
         if (!cancelled) setTasks(taskRows || []);
       }
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  }, [companyId, workerBranchId, branchFilter]);
 
   async function addTask() {
     if (!draft.trim() || !projectId) return;
+    const branch_id = workerBranchId || (isAdmin ? (branchFilter || null) : null);
     const { data: created } = await supabase
       .from("tasks")
-      .insert({ project_id: projectId, title: draft.trim(), status: "todo" })
+      .insert({ project_id: projectId, title: draft.trim(), status: "todo", branch_id })
       .select()
       .single();
     if (created) setTasks((t) => [...t, created]);
@@ -158,6 +169,15 @@ function ProjectCoordination({ companyId }) {
   return (
     <div>
       <SectionHeading eyebrow="Module 01" title="Project Coordination" />
+      {isAdmin && branches.length > 0 && companyId && (
+        <div style={{ marginBottom: 16 }}>
+          <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}
+            style={{ padding: "8px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 8, fontSize: 12.5, color: COLORS.ink }}>
+            <option value="">All branches</option>
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
+      )}
       {!companyId ? (
         <div style={{ fontSize: 13.5, color: COLORS.slate }}>
           No company selected yet. Kauvex staff: company switching for this module is coming soon — for now this links to your own profile's company.
@@ -172,7 +192,7 @@ function ProjectCoordination({ companyId }) {
           placeholder="Add a task — e.g. Site visit, Palakkad"
           style={{
             flex: 1, padding: "10px 14px", border: `1px solid ${COLORS.line}`,
-            fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 14, background: COLORS.card, borderRadius: 2,
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 14, background: COLORS.card, borderRadius: 2,
           }}
         />
         <button
@@ -180,7 +200,7 @@ function ProjectCoordination({ companyId }) {
           style={{
             display: "flex", alignItems: "center", gap: 6, padding: "10px 16px",
             background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2,
-            fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 13, cursor: "pointer",
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 13, cursor: "pointer",
           }}
         >
           <Plus size={15} /> Add
@@ -209,7 +229,7 @@ function ProjectCoordination({ companyId }) {
                       title="Click to move to next status"
                       style={{
                         background: COLORS.card, border: `1px solid ${COLORS.line}`, borderLeft: `3px solid ${accent}`,
-                        padding: "10px 12px", fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 13.5, color: COLORS.ink, borderRadius: 8,
+                        padding: "10px 12px", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 13.5, color: COLORS.ink, borderRadius: 8,
                         textAlign: "left", cursor: "pointer", display: "block", width: "100%",
                       }}
                     >
@@ -228,7 +248,7 @@ function ProjectCoordination({ companyId }) {
                     </button>
                   ))}
                   {colTasks.length === 0 && (
-                    <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 12.5, color: COLORS.slate, fontStyle: "italic" }}>Nothing here yet</div>
+                    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 12.5, color: COLORS.slate, fontStyle: "italic" }}>Nothing here yet</div>
                   )}
                 </div>
               </div>
@@ -312,7 +332,7 @@ function HRModule({ companyId }) {
         <div style={{ color: COLORS.slate, fontSize: 13 }}>Loading team...</div>
       ) : (
       <CornerFrame style={{ background: COLORS.card, padding: 0, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}>
           <thead>
             <tr style={{ background: COLORS.ink }}>
               {["Name", "Role", "Department", "Happiness"].map((h) => (
@@ -365,13 +385,16 @@ function ActivityModule({ companyId, profile }) {
     if (!companyId) { setLoading(false); return; }
     setLoading(true);
     const today = new Date().toISOString().slice(0, 10);
-    const { data } = await supabase
+    const isAdmin = hasFullVisibility(profile.role);
+    let query = supabase
       .from("activity_logs")
       .select("*")
       .eq("company_id", companyId)
       .eq("log_date", today)
       .order("log_time", { ascending: false })
       .limit(30);
+    if (!isAdmin && profile.branch_id) query = query.eq("branch_id", profile.branch_id);
+    const { data } = await query;
     setLogs(data || []);
     if (data) {
       const mine = data.filter((d) => d.description && d.description.includes(profile.full_name));
@@ -394,6 +417,7 @@ function ActivityModule({ companyId, profile }) {
       description,
       log_date: now.toISOString().slice(0, 10),
       log_time: now.toTimeString().slice(0, 8),
+      branch_id: profile.branch_id || null,
     });
     setPosting(false);
     loadLogs();
@@ -428,7 +452,7 @@ function ActivityModule({ companyId, profile }) {
           style={{
             padding: "9px 16px", borderRadius: 2, border: "none", cursor: checkedIn ? "default" : "pointer",
             background: checkedIn ? COLORS.line : COLORS.green, color: checkedIn ? COLORS.slate : "#fff",
-            fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 13,
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 13,
           }}
         >
           {checkedIn ? "Checked In ✓" : "Check In"}
@@ -439,7 +463,7 @@ function ActivityModule({ companyId, profile }) {
           style={{
             padding: "9px 16px", borderRadius: 2, border: `1px solid ${COLORS.red}`, cursor: !checkedIn ? "default" : "pointer",
             background: "#fff", color: !checkedIn ? COLORS.line : COLORS.red,
-            fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 13,
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 13,
           }}
         >
           Check Out
@@ -452,12 +476,12 @@ function ActivityModule({ companyId, profile }) {
           onChange={(e) => setNote(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSubmitLog()}
           placeholder="Log a task / workflow update — e.g. Reviewed steel delivery schedule"
-          style={{ flex: 1, padding: "10px 14px", border: `1px solid ${COLORS.line}`, fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 14, background: COLORS.card, borderRadius: 2 }}
+          style={{ flex: 1, padding: "10px 14px", border: `1px solid ${COLORS.line}`, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 14, background: COLORS.card, borderRadius: 2 }}
         />
         <button
           onClick={handleSubmitLog}
           disabled={posting}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
         >
           <Plus size={15} /> Submit
         </button>
@@ -476,7 +500,7 @@ function ActivityModule({ companyId, profile }) {
               }}>
                 {l.activity_type}
               </div>
-              <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 13.5, color: COLORS.ink, flex: 1 }}>{l.description}</div>
+              <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 13.5, color: COLORS.ink, flex: 1 }}>{l.description}</div>
             </div>
           ))}
           {logs.length === 0 && <div style={{ fontSize: 13, color: COLORS.slate, fontStyle: "italic" }}>No activity logged today yet.</div>}
@@ -504,14 +528,14 @@ function ImprovementCalc() {
       <CornerFrame accent={COLORS.blueprint} style={{ background: COLORS.card, padding: 24, maxWidth: 480 }}>
         <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
           <label style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>Before (baseline)</div>
+            <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>Before (baseline)</div>
             <input
               type="number" value={before} onChange={(e) => setBefore(Number(e.target.value))}
               style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 16, borderRadius: 2 }}
             />
           </label>
           <label style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>After (current)</div>
+            <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>After (current)</div>
             <input
               type="number" value={after} onChange={(e) => setAfter(Number(e.target.value))}
               style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 16, borderRadius: 2 }}
@@ -519,12 +543,12 @@ function ImprovementCalc() {
           </label>
         </div>
         <div style={{ borderTop: `1px solid ${COLORS.line}`, paddingTop: 16, display: "flex", alignItems: "baseline", gap: 10 }}>
-          <span style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 13, color: COLORS.slate }}>Improvement</span>
-          <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 32, fontWeight: 700, color: positive ? COLORS.green : COLORS.red }}>
+          <span style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 13, color: COLORS.slate }}>Improvement</span>
+          <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 32, fontWeight: 700, color: positive ? COLORS.green : COLORS.red }}>
             {positive ? "+" : ""}{improvement}%
           </span>
         </div>
-        <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 12, color: COLORS.slate, marginTop: 8 }}>
+        <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 12, color: COLORS.slate, marginTop: 8 }}>
           Use this for any metric — leads, revenue, conversion rate, productive hours — to show progress at review time.
         </div>
       </CornerFrame>
@@ -590,7 +614,7 @@ function Login() {
 
   return (
     <div style={{
-      minHeight: "100vh", background: COLORS.ink, fontFamily: "'Helvetica Neue', Arial, sans-serif",
+      minHeight: "100vh", background: COLORS.ink, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
       display: "flex", alignItems: "center", justifyContent: "center",
       backgroundImage:
         "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)",
@@ -600,7 +624,7 @@ function Login() {
       <CornerFrame accent={COLORS.amber} style={{ background: COLORS.card, padding: "36px 34px", width: 360 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 26 }}>
           <Building2 color={COLORS.blueprint} size={22} />
-          <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 700, fontSize: 20, color: COLORS.ink }}>KAUVEX</span>
+          <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 700, fontSize: 20, color: COLORS.ink }}>KAUVEX</span>
           <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, color: COLORS.amber, marginLeft: 2 }}>OPS</span>
         </div>
         <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: 0.8, color: COLORS.slate, textTransform: "uppercase", marginBottom: 20 }}>
@@ -613,7 +637,7 @@ function Login() {
             <input
               type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
-              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 14, boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 14, boxSizing: "border-box" }}
             />
           </label>
           <label style={{ display: "block", marginBottom: 18 }}>
@@ -621,7 +645,7 @@ function Login() {
             <input
               type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 14, boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "10px 12px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 14, boxSizing: "border-box" }}
             />
           </label>
 
@@ -637,7 +661,7 @@ function Login() {
             style={{
               width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
               padding: "11px 16px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2,
-              fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 14, cursor: loading ? "default" : "pointer",
+              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 14, cursor: loading ? "default" : "pointer",
               opacity: loading ? 0.7 : 1,
             }}
           >
@@ -646,7 +670,7 @@ function Login() {
           </button>
         </form>
 
-        <div style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 11.5, color: COLORS.slate, marginTop: 18, lineHeight: 1.5 }}>
+        <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 11.5, color: COLORS.slate, marginTop: 18, lineHeight: 1.5 }}>
           Accounts are created by invite only. If you don't have one yet,
           contact your Kauvex admin.
         </div>
@@ -659,11 +683,11 @@ function Login() {
 /* ---------------- NO PROFILE / PENDING ACCESS SCREEN ---------------- */
 function PendingAccess({ email, onSignOut }) {
   return (
-    <div style={{ minHeight: "100vh", background: COLORS.paper, fontFamily: "'Helvetica Neue', Arial, sans-serif", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ minHeight: "100vh", background: COLORS.paper, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <style>{FONT_IMPORT}</style>
       <CornerFrame accent={COLORS.amber} style={{ background: COLORS.card, padding: "32px 30px", width: 380, textAlign: "center" }}>
         <Lock size={22} color={COLORS.amber} style={{ marginBottom: 12 }} />
-        <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 600, fontSize: 17, color: COLORS.ink, marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontSize: 17, color: COLORS.ink, marginBottom: 8 }}>
           Access pending
         </div>
         <div style={{ fontSize: 13, color: COLORS.slate, lineHeight: 1.6, marginBottom: 20 }}>
@@ -673,7 +697,7 @@ function PendingAccess({ email, onSignOut }) {
         </div>
         <button
           onClick={onSignOut}
-          style={{ padding: "9px 18px", background: "transparent", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 13, color: COLORS.ink, cursor: "pointer" }}
+          style={{ padding: "9px 18px", background: "transparent", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 13, color: COLORS.ink, cursor: "pointer" }}
         >
           Sign out
         </button>
@@ -811,7 +835,7 @@ function Dashboard({ profile, onSignOut }) {
           ) : active === "framex" ? (
             <FramexTracker />
           ) : active === "coord" ? (
-            <ProjectCoordination companyId={effectiveCompanyId} />
+            <ProjectCoordination companyId={effectiveCompanyId} profile={profile} />
           ) : active === "activity" ? (
             <ActivityModule companyId={effectiveCompanyId} profile={profile} />
           ) : active === "hr" ? (

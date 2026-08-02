@@ -17,7 +17,7 @@ const COLORS = {
 
 const inputStyle = {
   width: "100%", padding: "9px 11px", border: `1px solid ${COLORS.line}`,
-  borderRadius: 2, fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 13.5, boxSizing: "border-box",
+  borderRadius: 2, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 13.5, boxSizing: "border-box",
   background: "#fffef8",
 };
 
@@ -220,7 +220,7 @@ function FormEditor({ formDef, companyId, userId, onBack }) {
         <ChevronLeft size={15} /> Back to forms
       </button>
 
-      <h2 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 21, fontWeight: 600, color: COLORS.ink, marginBottom: 18 }}>
+      <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 21, fontWeight: 600, color: COLORS.ink, marginBottom: 18 }}>
         {formDef.title}
       </h2>
 
@@ -241,7 +241,7 @@ function FormEditor({ formDef, companyId, userId, onBack }) {
               style={{
                 display: "flex", alignItems: "center", gap: 7, padding: "10px 18px",
                 background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2,
-                fontFamily: "'Helvetica Neue', Arial, sans-serif", fontWeight: 600, fontSize: 13.5, cursor: saving ? "default" : "pointer",
+                fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 13.5, cursor: saving ? "default" : "pointer",
                 opacity: saving ? 0.7 : 1,
               }}
             >
@@ -284,7 +284,7 @@ export default function FormsModule({ companyId, userId }) {
       <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: 1.2, color: COLORS.amber, textTransform: "uppercase", marginBottom: 4 }}>
         Module 06
       </div>
-      <h2 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 24, fontWeight: 600, color: COLORS.ink, marginBottom: 22 }}>
+      <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 24, fontWeight: 600, color: COLORS.ink, marginBottom: 22 }}>
         Forms & Trackers
       </h2>
 
@@ -305,7 +305,7 @@ export default function FormsModule({ companyId, userId }) {
                 }}
               >
                 <FileText size={16} color={COLORS.blueprint} style={{ marginTop: 2, flexShrink: 0 }} />
-                <span style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", fontSize: 13.5, color: COLORS.ink, fontWeight: 500 }}>{f.title}</span>
+                <span style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 13.5, color: COLORS.ink, fontWeight: 500 }}>{f.title}</span>
               </button>
             ))}
           </div>

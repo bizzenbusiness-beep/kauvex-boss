@@ -220,7 +220,7 @@ function FormEditor({ formDef, companyId, userId, onBack }) {
         <ChevronLeft size={15} /> Back to forms
       </button>
 
-      <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 21, fontWeight: 600, color: COLORS.ink, marginBottom: 18 }}>
+      <h2 style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 21, fontWeight: 600, color: COLORS.ink, marginBottom: 18 }}>
         {formDef.title}
       </h2>
 
@@ -284,7 +284,7 @@ export default function FormsModule({ companyId, userId }) {
       <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: 1.2, color: COLORS.amber, textTransform: "uppercase", marginBottom: 4 }}>
         Module 06
       </div>
-      <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 24, fontWeight: 600, color: COLORS.ink, marginBottom: 22 }}>
+      <h2 style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 24, fontWeight: 600, color: COLORS.ink, marginBottom: 22 }}>
         Forms & Trackers
       </h2>
 

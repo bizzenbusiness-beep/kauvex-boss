@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import { IndianRupee, CreditCard, TrendingUp, Users, Wallet, ShieldCheck } from "lucide-react";
 
-const FONT_SERIF = "'Fraunces', Georgia, serif";
+const FONT_SERIF = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 const FONT_SANS = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 const COLORS = {

@@ -186,7 +186,7 @@ function CompanyList({ onSelect }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
           <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: 1, color: COLORS.amber, textTransform: "uppercase" }}>BizZen Business Framex</div>
-          <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontSize: 22, color: COLORS.ink, margin: "4px 0 0" }}>Implementation Tracker</h2>
+          <h2 style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 22, color: COLORS.ink, margin: "4px 0 0" }}>Implementation Tracker</h2>
         </div>
         <button onClick={() => setShowAdd((s) => !s)} style={{
           display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", background: COLORS.ink, color: "#fff",
@@ -694,7 +694,7 @@ function CompanyDetail({ company, onBack }) {
         <ChevronLeft size={15} /> Back to clients
       </button>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
-        <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontSize: 21, color: COLORS.ink, margin: 0 }}>{company.name}</h2>
+        <h2 style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 21, color: COLORS.ink, margin: 0 }}>{company.name}</h2>
         <div style={{ display: "flex", gap: 6 }}>
           {BFSP_STAGES.map((b) => (
             <button key={b.key} onClick={() => updateBfsp(b.key)} title={b.full} style={{
@@ -747,7 +747,7 @@ function CompanyDetail({ company, onBack }) {
           </div>
 
           <div style={{ borderTop: `1px solid ${COLORS.line}`, paddingTop: 18 }}>
-            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 16, fontWeight: 600, color: COLORS.ink, marginBottom: 14 }}>
+            <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 16, fontWeight: 600, color: COLORS.ink, marginBottom: 14 }}>
               Business Structure Profile
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -775,7 +775,7 @@ function CompanyDetail({ company, onBack }) {
           </div>
 
           <div style={{ borderTop: `1px solid ${COLORS.line}`, paddingTop: 18 }}>
-            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 16, fontWeight: 600, color: COLORS.ink, marginBottom: 14 }}>
+            <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 16, fontWeight: 600, color: COLORS.ink, marginBottom: 14 }}>
               Business Metrics &amp; Strategy
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
@@ -931,7 +931,7 @@ function CompanyDetail({ company, onBack }) {
         <div style={{ maxWidth: 820 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
             <button onClick={() => shiftWeek(-7)} style={{ padding: "6px 12px", border: `1px solid ${COLORS.line}`, background: "#fff", borderRadius: 2, cursor: "pointer", fontSize: 12.5 }}>← Previous week</button>
-            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 15, fontWeight: 600, color: COLORS.ink }}>
+            <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 15, fontWeight: 600, color: COLORS.ink }}>
               Week of {new Date(weekOf).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })} (Friday)
             </div>
             <button onClick={() => shiftWeek(7)} style={{ padding: "6px 12px", border: `1px solid ${COLORS.line}`, background: "#fff", borderRadius: 2, cursor: "pointer", fontSize: 12.5 }}>Next week →</button>
@@ -947,7 +947,7 @@ function CompanyDetail({ company, onBack }) {
                   <div key={d.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, borderLeft: `4px solid ${d.color}`, padding: "16px 18px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
                       <div>
-                        <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 15.5, fontWeight: 600, color: COLORS.ink }}>{d.label}</div>
+                        <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 15.5, fontWeight: 600, color: COLORS.ink }}>{d.label}</div>
                         <div style={{ fontSize: 11.5, color: COLORS.slate, marginTop: 2 }}>{d.who}</div>
                         <div style={{ fontSize: 12, color: COLORS.slate, marginTop: 4 }}>{d.desc}</div>
                       </div>
@@ -1037,7 +1037,7 @@ function CompanyDetail({ company, onBack }) {
           </div>
 
           <div style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, padding: 16, marginBottom: 20 }}>
-            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 15, fontWeight: 600, color: COLORS.ink, marginBottom: 12 }}>Schedule a Meeting</div>
+            <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 15, fontWeight: 600, color: COLORS.ink, marginBottom: 12 }}>Schedule a Meeting</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
               <select value={newMeeting.meeting_type} onChange={(e) => setNewMeeting({ ...newMeeting, meeting_type: e.target.value })}
                 style={{ padding: "9px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13 }}>
@@ -1174,7 +1174,7 @@ function CompanyDetail({ company, onBack }) {
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(compareData.length, 3)}, 1fr)`, gap: 14 }}>
               {compareData.map(({ branch, teamCount, avgHappiness, taskTotal, taskDone, completionPct }) => (
                 <div key={branch.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, borderTop: `3px solid ${COLORS.blueprint}`, padding: "18px 18px" }}>
-                  <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 17, fontWeight: 600, color: COLORS.ink }}>{branch.name}</div>
+                  <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 17, fontWeight: 600, color: COLORS.ink }}>{branch.name}</div>
                   <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 16 }}>{branch.location}</div>
 
                   <div style={{ marginBottom: 14 }}>
@@ -1190,11 +1190,11 @@ function CompanyDetail({ company, onBack }) {
 
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: `1px solid ${COLORS.line}` }}>
                     <span style={{ fontSize: 12.5, color: COLORS.slate }}>Team Size</span>
-                    <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 16, fontWeight: 700, color: COLORS.ink }}>{teamCount}</span>
+                    <span style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 16, fontWeight: 700, color: COLORS.ink }}>{teamCount}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: `1px solid ${COLORS.line}` }}>
                     <span style={{ fontSize: 12.5, color: COLORS.slate }}>Avg. Happiness</span>
-                    <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 16, fontWeight: 700, color: COLORS.ink }}>
+                    <span style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 16, fontWeight: 700, color: COLORS.ink }}>
                       {avgHappiness == null ? "—" : `${avgHappiness.toFixed(1)}/10`}
                     </span>
                   </div>

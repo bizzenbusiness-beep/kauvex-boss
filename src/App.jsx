@@ -5,6 +5,7 @@ import {
   LogOut, Lock, Loader2, AlertCircle, FileText, Map
 } from "lucide-react";
 import { supabase } from "./lib/supabaseClient.js";
+import { t, LANGUAGES } from "./i18n.js";
 
 const FormsModule = lazy(() => import("./forms/FormsModule.jsx"));
 const FramexTracker = lazy(() => import("./framex/FramexTracker.jsx"));
@@ -18,7 +19,7 @@ const MeasureMonitor = lazy(() => import("./MeasureMonitor.jsx"));
 
 const FONT_IMPORT = ``; // no external font fetch — system Georgia + sans for speed
 
-const FONT_SERIF = "'Fraunces', Georgia, serif";
+const FONT_SERIF = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 const FONT_SANS = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 const COLORS = {
@@ -74,7 +75,7 @@ function SectionHeading({ eyebrow, title }) {
       <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: 1.5, color: COLORS.amber, textTransform: "uppercase", marginBottom: 4 }}>
         {eyebrow}
       </div>
-      <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 24, fontWeight: 600, color: COLORS.ink, margin: 0 }}>{title}</h2>
+      <h2 style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 24, fontWeight: 600, color: COLORS.ink, margin: 0 }}>{title}</h2>
     </div>
   );
 }
@@ -544,7 +545,7 @@ function ImprovementCalc() {
         </div>
         <div style={{ borderTop: `1px solid ${COLORS.line}`, paddingTop: 16, display: "flex", alignItems: "baseline", gap: 10 }}>
           <span style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 13, color: COLORS.slate }}>Improvement</span>
-          <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 32, fontWeight: 700, color: positive ? COLORS.green : COLORS.red }}>
+          <span style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 32, fontWeight: 700, color: positive ? COLORS.green : COLORS.red }}>
             {positive ? "+" : ""}{improvement}%
           </span>
         </div>
@@ -602,6 +603,10 @@ function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem("kauvex_lang") || "en"; } catch (e) { return "en"; }
+  });
+  useEffect(() => { try { localStorage.setItem("kauvex_lang", lang); } catch (e) {} }, [lang]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -622,18 +627,32 @@ function Login() {
     }}>
       <style>{FONT_IMPORT}</style>
       <CornerFrame accent={COLORS.amber} style={{ background: COLORS.card, padding: "36px 34px", width: 360 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 26 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <Building2 color={COLORS.blueprint} size={22} />
-          <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 700, fontSize: 20, color: COLORS.ink }}>KAUVEX</span>
+          <span style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 700, fontSize: 20, color: COLORS.ink }}>KAUVEX</span>
           <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, color: COLORS.amber, marginLeft: 2 }}>OPS</span>
         </div>
+
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 16 }}>
+          {LANGUAGES.map((l) => (
+            <button key={l.key} type="button" onClick={() => setLang(l.key)} style={{
+              padding: "4px 9px", borderRadius: 20, fontSize: 11, cursor: "pointer",
+              border: `1px solid ${lang === l.key ? COLORS.blueprint : COLORS.line}`,
+              background: lang === l.key ? COLORS.blueprint : "#fff",
+              color: lang === l.key ? "#fff" : COLORS.slate,
+            }}>
+              {l.label}
+            </button>
+          ))}
+        </div>
+
         <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: 0.8, color: COLORS.slate, textTransform: "uppercase", marginBottom: 20 }}>
-          Sign in to your workspace
+          {t("sign_in_workspace", lang)}
         </div>
 
         <form onSubmit={handleSubmit}>
           <label style={{ display: "block", marginBottom: 14 }}>
-            <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>Email</div>
+            <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>{t("email", lang)}</div>
             <input
               type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
@@ -641,7 +660,7 @@ function Login() {
             />
           </label>
           <label style={{ display: "block", marginBottom: 18 }}>
-            <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>Password</div>
+            <div style={{ fontSize: 12, color: COLORS.slate, marginBottom: 6 }}>{t("password", lang)}</div>
             <input
               type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -666,7 +685,7 @@ function Login() {
             }}
           >
             {loading ? <Loader2 size={15} className="spin" /> : <Lock size={14} />}
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? t("loading", lang) : t("sign_in", lang)}
           </button>
         </form>
 
@@ -687,7 +706,7 @@ function PendingAccess({ email, onSignOut }) {
       <style>{FONT_IMPORT}</style>
       <CornerFrame accent={COLORS.amber} style={{ background: COLORS.card, padding: "32px 30px", width: 380, textAlign: "center" }}>
         <Lock size={22} color={COLORS.amber} style={{ marginBottom: 12 }} />
-        <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontSize: 17, color: COLORS.ink, marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 17, color: COLORS.ink, marginBottom: 8 }}>
           Access pending
         </div>
         <div style={{ fontSize: 13, color: COLORS.slate, lineHeight: 1.6, marginBottom: 20 }}>
@@ -708,18 +727,26 @@ function PendingAccess({ email, onSignOut }) {
 
 /* ---------------- SHELL ---------------- */
 const NAV = [
-  { key: "coord", label: "Project Coordination", icon: LayoutGrid, Comp: ProjectCoordination },
-  { key: "hr", label: "HR", icon: Users, Comp: HRModule },
-  { key: "activity", label: "Activity", icon: Activity, Comp: ActivityModule },
-  { key: "measure", label: "Measure & Monitor", icon: Gauge, Comp: MeasureMonitor },
-  { key: "improve", label: "Improvement Calc", icon: TrendingUp, Comp: ImprovementCalc },
-  { key: "forms", label: "Forms & Trackers", icon: FileText, Comp: null },
-  { key: "framex", label: "BizZen Framex", icon: Map, Comp: null },
+  { key: "coord", label: "Project Coordination", i18n: "nav_coord", icon: LayoutGrid, Comp: ProjectCoordination },
+  { key: "hr", label: "HR", i18n: "nav_hr", icon: Users, Comp: HRModule },
+  { key: "activity", label: "Activity", i18n: "nav_activity", icon: Activity, Comp: ActivityModule },
+  { key: "measure", label: "Measure & Monitor", i18n: "nav_measure", icon: Gauge, Comp: MeasureMonitor },
+  { key: "improve", label: "Improvement Calc", i18n: "nav_improve", icon: TrendingUp, Comp: ImprovementCalc },
+  { key: "forms", label: "Forms & Trackers", i18n: "nav_forms", icon: FileText, Comp: null },
+  { key: "framex", label: "BizZen Framex", i18n: "nav_framex", icon: Map, Comp: null },
 ];
 
 function Dashboard({ profile, onSignOut }) {
   const [active, setActive] = useState("coord");
   const isKauvexStaff = KAUVEX_ROLES.includes(profile.role);
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem("kauvex_lang") || "en"; } catch (e) { return "en"; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("kauvex_lang", lang); } catch (e) {}
+    const langMeta = LANGUAGES.find((l) => l.key === lang);
+    document.documentElement.setAttribute("dir", langMeta?.dir || "ltr");
+  }, [lang]);
 
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState(profile.company_id || null);
@@ -742,7 +769,7 @@ function Dashboard({ profile, onSignOut }) {
   const Active = activeItem.Comp;
 
   const todayLabel = new Date().toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
-  const NAV_LABELS_MAP = Object.fromEntries(NAV.map((n) => [n.key, n.label]));
+  const NAV_LABELS_MAP = Object.fromEntries(NAV.map((n) => [n.key, t(n.i18n, lang)]));
 
   return (
     <div style={{ minHeight: "100vh", background: COLORS.paper, fontFamily: FONT_SANS }}>
@@ -774,8 +801,24 @@ function Dashboard({ profile, onSignOut }) {
             </div>
           )}
 
+          <div>
+            <div style={{ fontSize: 9.5, color: COLORS.slate, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>Language</div>
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value)}
+              style={{
+                width: "100%", background: COLORS.paper, border: `1px solid ${COLORS.line}`, color: COLORS.ink,
+                padding: "9px 10px", borderRadius: 2, fontSize: 12.5, fontFamily: FONT_SANS,
+              }}
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l.key} value={l.key}>{l.label}</option>
+              ))}
+            </select>
+          </div>
+
           <nav style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 4 }}>
-            {nav.map(({ key, label }) => {
+            {nav.map(({ key, i18n }) => {
               const isActive = key === active;
               return (
                 <button
@@ -788,7 +831,7 @@ function Dashboard({ profile, onSignOut }) {
                     fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: FONT_SANS,
                   }}
                 >
-                  {label}
+                  {t(i18n, lang)}
                 </button>
               );
             })}
@@ -805,7 +848,7 @@ function Dashboard({ profile, onSignOut }) {
                 fontFamily: FONT_SANS, fontSize: 12, fontWeight: 500, cursor: "pointer",
               }}
             >
-              <LogOut size={13} /> Sign out
+              <LogOut size={13} /> {t("sign_out", lang)}
             </button>
           </div>
         </div>
@@ -817,7 +860,7 @@ function Dashboard({ profile, onSignOut }) {
             borderBottom: `1px solid ${COLORS.line}`, paddingBottom: 20,
           }}>
             <div>
-              <h1 style={{ fontFamily: FONT_SERIF, fontSize: 26, margin: 0, color: COLORS.ink, fontWeight: 400 }}>
+              <h1 style={{ fontFamily: FONT_SERIF, fontSize: 26, margin: 0, color: COLORS.ink, fontWeight: 700 }}>
                 {NAV_LABELS_MAP[active] || "Dashboard"}
               </h1>
               <div style={{ color: COLORS.slate, fontSize: 12, marginTop: 6, letterSpacing: 0.3 }}>

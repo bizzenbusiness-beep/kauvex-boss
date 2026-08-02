@@ -311,6 +311,10 @@ function CompanyDetail({ company, onBack }) {
   const [faceIdBusy, setFaceIdBusy] = useState(false);
   const [compareData, setCompareData] = useState([]);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [krakpiRows, setKrakpiRows] = useState([]);
+  const [krakpiLoading, setKrakpiLoading] = useState(false);
+  const [krakpiFilter, setKrakpiFilter] = useState("kra");
+  const [newKrakpi, setNewKrakpi] = useState({ title: "", department: "", period: "", target: "", actual: "", unit: "%" });
   const [loading, setLoading] = useState(true);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteLang, setNoteLang] = useState("en");
@@ -338,8 +342,40 @@ function CompanyDetail({ company, onBack }) {
   useEffect(() => {
     if (tab === "meetings" && meetings.length === 0 && !meetingsLoading) loadMeetings();
     if (tab === "compare" && branches.length > 0) loadCompareData();
+    if (tab === "krakpi" && krakpiRows.length === 0 && !krakpiLoading) loadKrakpi();
     // eslint-disable-next-line
   }, [tab, branches.length]);
+
+  async function loadKrakpi() {
+    setKrakpiLoading(true);
+    const { data } = await supabase.from("kra_kpi_tracker").select("*").eq("company_id", company.id).order("created_at", { ascending: false });
+    setKrakpiRows(data || []);
+    setKrakpiLoading(false);
+  }
+
+  async function addKrakpi() {
+    if (!newKrakpi.title.trim()) return;
+    const { data } = await supabase.from("kra_kpi_tracker").insert({
+      company_id: company.id, item_type: krakpiFilter, title: newKrakpi.title.trim(),
+      department: newKrakpi.department, period: newKrakpi.period,
+      target: newKrakpi.target === "" ? null : Number(newKrakpi.target),
+      actual: newKrakpi.actual === "" ? null : Number(newKrakpi.actual),
+      unit: newKrakpi.unit,
+    }).select().single();
+    if (data) setKrakpiRows((r) => [data, ...r]);
+    setNewKrakpi({ title: "", department: "", period: "", target: "", actual: "", unit: "%" });
+  }
+
+  async function updateKrakpi(id, field, value) {
+    const parsed = (field === "target" || field === "actual") ? (value === "" ? null : Number(value)) : value;
+    setKrakpiRows((r) => r.map((x) => (x.id === id ? { ...x, [field]: parsed } : x)));
+    await supabase.from("kra_kpi_tracker").update({ [field]: parsed }).eq("id", id);
+  }
+
+  async function deleteKrakpi(id) {
+    setKrakpiRows((r) => r.filter((x) => x.id !== id));
+    await supabase.from("kra_kpi_tracker").delete().eq("id", id);
+  }
 
   async function loadCompareData() {
     setCompareLoading(true);
@@ -710,7 +746,7 @@ function CompanyDetail({ company, onBack }) {
       </div>
 
       <div style={{ display: "flex", gap: 4, marginBottom: 22, borderBottom: `1px solid ${COLORS.line}`, flexWrap: "wrap" }}>
-        {[["setup", "Company Setup"], ["branches", "Branches"], ["compare", "Branch Comparison"], ["performance", "Role Performance"], ["weekly", "Weekly Cycle"], ["meetings", "Meeting Room"], ["journey", "6-Stage Journey"], ["bmw", "BOSS BMW Program"], ["pillars", "5 Pillars Matrix"], ["notes", "Notes"], ["appointments", "Appointments"]].map(([k, label]) => (
+        {[["setup", "Company Setup"], ["branches", "Branches"], ["compare", "Branch Comparison"], ["krakpi", "KRA/KPI Tracker"], ["performance", "Role Performance"], ["weekly", "Weekly Cycle"], ["meetings", "Meeting Room"], ["journey", "6-Stage Journey"], ["bmw", "BOSS BMW Program"], ["pillars", "5 Pillars Matrix"], ["notes", "Notes"], ["appointments", "Appointments"]].map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             padding: "9px 4px", marginRight: 20, background: "none", border: "none", cursor: "pointer",
             borderBottom: tab === k ? `2px solid ${COLORS.blueprint}` : "2px solid transparent",
@@ -1200,6 +1236,99 @@ function CompanyDetail({ company, onBack }) {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "krakpi" && (
+        <div style={{ maxWidth: 950 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+            {["kra", "kpi"].map((k) => (
+              <button key={k} onClick={() => setKrakpiFilter(k)} style={{
+                padding: "7px 16px", borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                border: `1px solid ${krakpiFilter === k ? COLORS.blueprint : COLORS.line}`,
+                background: krakpiFilter === k ? COLORS.blueprint : "#fff",
+                color: krakpiFilter === k ? "#fff" : COLORS.slate,
+              }}>
+                {k === "kra" ? "KRA — Key Result Areas" : "KPI — Key Performance Indicators"}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, padding: 16, marginBottom: 20 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+              <input placeholder={krakpiFilter === "kra" ? "KRA title — e.g. Sales Growth" : "KPI title — e.g. Lead Conversion Rate"}
+                value={newKrakpi.title} onChange={(e) => setNewKrakpi({ ...newKrakpi, title: e.target.value })}
+                style={{ flex: "2 1 200px", padding: "9px 11px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13 }} />
+              <input placeholder="Department" value={newKrakpi.department} onChange={(e) => setNewKrakpi({ ...newKrakpi, department: e.target.value })}
+                style={{ flex: "1 1 130px", padding: "9px 11px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13 }} />
+              <input placeholder="Period (e.g. Aug 2026)" value={newKrakpi.period} onChange={(e) => setNewKrakpi({ ...newKrakpi, period: e.target.value })}
+                style={{ flex: "1 1 130px", padding: "9px 11px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13 }} />
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input type="number" placeholder="Target" value={newKrakpi.target} onChange={(e) => setNewKrakpi({ ...newKrakpi, target: e.target.value })}
+                style={{ width: 100, padding: "9px 11px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13 }} />
+              <input type="number" placeholder="Actual" value={newKrakpi.actual} onChange={(e) => setNewKrakpi({ ...newKrakpi, actual: e.target.value })}
+                style={{ width: 100, padding: "9px 11px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13 }} />
+              <select value={newKrakpi.unit} onChange={(e) => setNewKrakpi({ ...newKrakpi, unit: e.target.value })}
+                style={{ padding: "9px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13 }}>
+                <option value="%">%</option>
+                <option value="Rs">Rs</option>
+                <option value="count">count</option>
+              </select>
+              <button onClick={addKrakpi} style={{ padding: "9px 18px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                Add {krakpiFilter.toUpperCase()}
+              </button>
+            </div>
+          </div>
+
+          {krakpiLoading ? (
+            <div style={{ color: COLORS.slate, fontSize: 13 }}>Loading...</div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 800 }}>
+                <thead>
+                  <tr>
+                    {["Title", "Department", "Period", "Target", "Actual", "% Achieved", ""].map((h) => (
+                      <th key={h} style={{ textAlign: "left", padding: "8px 10px", fontSize: 11, color: COLORS.slate, borderBottom: `1px solid ${COLORS.line}` }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {krakpiRows.filter((r) => r.item_type === krakpiFilter).map((r) => {
+                    const pct = (r.target != null && r.target !== 0 && r.actual != null) ? (r.actual / r.target) * 100 : null;
+                    return (
+                      <tr key={r.id}>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${COLORS.line}`, fontSize: 13, fontWeight: 600, color: COLORS.ink }}>{r.title}</td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${COLORS.line}`, fontSize: 12.5, color: COLORS.slate }}>{r.department}</td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${COLORS.line}`, fontSize: 12.5, color: COLORS.slate }}>{r.period}</td>
+                        <td style={{ padding: "6px 8px", borderBottom: `1px solid ${COLORS.line}` }}>
+                          <input type="number" defaultValue={r.target ?? ""} onBlur={(e) => updateKrakpi(r.id, "target", e.target.value)}
+                            style={{ width: 70, padding: "5px 7px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 12.5 }} /> {r.unit}
+                        </td>
+                        <td style={{ padding: "6px 8px", borderBottom: `1px solid ${COLORS.line}` }}>
+                          <input type="number" defaultValue={r.actual ?? ""} onBlur={(e) => updateKrakpi(r.id, "actual", e.target.value)}
+                            style={{ width: 70, padding: "5px 7px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 12.5 }} /> {r.unit}
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${COLORS.line}`, fontSize: 13, fontWeight: 700, color: pct == null ? COLORS.slate : pct >= 90 ? COLORS.green : pct >= 60 ? COLORS.amber : COLORS.red }}>
+                          {pct == null ? "—" : `${pct.toFixed(0)}%`}
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${COLORS.line}` }}>
+                          <button onClick={() => deleteKrakpi(r.id)} style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.slate }}>
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {krakpiRows.filter((r) => r.item_type === krakpiFilter).length === 0 && (
+                    <tr><td colSpan={7} style={{ padding: "14px 10px", fontSize: 13, color: COLORS.slate, fontStyle: "italic" }}>
+                      No {krakpiFilter.toUpperCase()} rows yet — add one above.
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

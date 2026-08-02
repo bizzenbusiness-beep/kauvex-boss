@@ -315,6 +315,11 @@ function CompanyDetail({ company, onBack }) {
   const [krakpiLoading, setKrakpiLoading] = useState(false);
   const [krakpiFilter, setKrakpiFilter] = useState("kra");
   const [newKrakpi, setNewKrakpi] = useState({ title: "", department: "", period: "", target: "", actual: "", unit: "%" });
+  const [mmiRecords, setMmiRecords] = useState([]);
+  const [mmiLoading, setMmiLoading] = useState(false);
+  const [mmiKpiOptions, setMmiKpiOptions] = useState([]);
+  const [newMmiTitle, setNewMmiTitle] = useState("");
+  const [newMmiKpiId, setNewMmiKpiId] = useState("");
   const [loading, setLoading] = useState(true);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteLang, setNoteLang] = useState("en");
@@ -343,8 +348,41 @@ function CompanyDetail({ company, onBack }) {
     if (tab === "meetings" && meetings.length === 0 && !meetingsLoading) loadMeetings();
     if (tab === "compare" && branches.length > 0) loadCompareData();
     if (tab === "krakpi" && krakpiRows.length === 0 && !krakpiLoading) loadKrakpi();
+    if (tab === "mmi" && mmiRecords.length === 0 && !mmiLoading) loadMmi();
     // eslint-disable-next-line
   }, [tab, branches.length]);
+
+  async function loadMmi() {
+    setMmiLoading(true);
+    const [{ data: records }, { data: kpis }] = await Promise.all([
+      supabase.from("mmi_records").select("*").eq("company_id", company.id).order("created_at", { ascending: false }),
+      supabase.from("kra_kpi_tracker").select("id,title").eq("company_id", company.id).eq("item_type", "kpi"),
+    ]);
+    setMmiRecords(records || []);
+    setMmiKpiOptions(kpis || []);
+    setMmiLoading(false);
+  }
+
+  async function addMmi() {
+    if (!newMmiTitle.trim() && !newMmiKpiId) return;
+    const linkedKpi = mmiKpiOptions.find((k) => k.id === newMmiKpiId);
+    const { data } = await supabase.from("mmi_records").insert({
+      company_id: company.id, kpi_id: newMmiKpiId || null,
+      title: newMmiTitle.trim() || linkedKpi?.title || "Untitled",
+    }).select().single();
+    if (data) setMmiRecords((r) => [data, ...r]);
+    setNewMmiTitle(""); setNewMmiKpiId("");
+  }
+
+  async function updateMmi(id, field, value) {
+    setMmiRecords((r) => r.map((x) => (x.id === id ? { ...x, [field]: value } : x)));
+    await supabase.from("mmi_records").update({ [field]: value }).eq("id", id);
+  }
+
+  async function deleteMmi(id) {
+    setMmiRecords((r) => r.filter((x) => x.id !== id));
+    await supabase.from("mmi_records").delete().eq("id", id);
+  }
 
   async function loadKrakpi() {
     setKrakpiLoading(true);
@@ -746,7 +784,7 @@ function CompanyDetail({ company, onBack }) {
       </div>
 
       <div style={{ display: "flex", gap: 4, marginBottom: 22, borderBottom: `1px solid ${COLORS.line}`, flexWrap: "wrap" }}>
-        {[["setup", "Company Setup"], ["branches", "Branches"], ["compare", "Branch Comparison"], ["krakpi", "KRA/KPI Tracker"], ["performance", "Role Performance"], ["weekly", "Weekly Cycle"], ["meetings", "Meeting Room"], ["journey", "6-Stage Journey"], ["bmw", "BOSS BMW Program"], ["pillars", "5 Pillars Matrix"], ["notes", "Notes"], ["appointments", "Appointments"]].map(([k, label]) => (
+        {[["setup", "Company Setup"], ["branches", "Branches"], ["compare", "Branch Comparison"], ["krakpi", "KRA/KPI Tracker"], ["mmi", "M-M-I Calculator"], ["performance", "Role Performance"], ["weekly", "Weekly Cycle"], ["meetings", "Meeting Room"], ["journey", "6-Stage Journey"], ["bmw", "BOSS BMW Program"], ["pillars", "5 Pillars Matrix"], ["notes", "Notes"], ["appointments", "Appointments"]].map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             padding: "9px 4px", marginRight: 20, background: "none", border: "none", cursor: "pointer",
             borderBottom: tab === k ? `2px solid ${COLORS.blueprint}` : "2px solid transparent",
@@ -1329,6 +1367,84 @@ function CompanyDetail({ company, onBack }) {
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "mmi" && (
+        <div style={{ maxWidth: 860 }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, padding: 16, marginBottom: 20 }}>
+            <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 15, fontWeight: 700, color: COLORS.ink, marginBottom: 12 }}>Start a new M-M-I Cycle</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <select value={newMmiKpiId} onChange={(e) => setNewMmiKpiId(e.target.value)}
+                style={{ flex: "1 1 200px", padding: "9px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13 }}>
+                <option value="">Link to a KPI (optional)</option>
+                {mmiKpiOptions.map((k) => <option key={k.id} value={k.id}>{k.title}</option>)}
+              </select>
+              <input placeholder="Or type a title directly" value={newMmiTitle} onChange={(e) => setNewMmiTitle(e.target.value)}
+                style={{ flex: "1 1 200px", padding: "9px 11px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13 }} />
+              <button onClick={addMmi} style={{ padding: "9px 18px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                Start Cycle
+              </button>
+            </div>
+          </div>
+
+          {mmiLoading ? (
+            <div style={{ color: COLORS.slate, fontSize: 13 }}>Loading...</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {mmiRecords.map((m) => (
+                <div key={m.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: `1px solid ${COLORS.line}` }}>
+                    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: 14.5, fontWeight: 700, color: COLORS.ink }}>{m.title}</div>
+                    <button onClick={() => deleteMmi(m.id)} style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.slate }}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+
+                  {[
+                    { key: "measure", label: "Measure", color: COLORS.blueprint, desc: "How is it measured? What's the current baseline?" },
+                    { key: "monitor", label: "Monitor", color: COLORS.amber, desc: "Tracking frequency, method, observations" },
+                    { key: "improve", label: "Improve", color: COLORS.green, desc: "Action plan, target, deadline" },
+                  ].map((stage) => {
+                    const status = m[`${stage.key}_status`] || "pending";
+                    return (
+                      <div key={stage.key} style={{ padding: "14px 16px", borderBottom: stage.key !== "improve" ? `1px solid ${COLORS.line}` : "none", borderLeft: `4px solid ${stage.color}` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                          <div>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.ink }}>{stage.label}</div>
+                            <div style={{ fontSize: 11.5, color: COLORS.slate }}>{stage.desc}</div>
+                          </div>
+                          <button onClick={() => updateMmi(m.id, `${stage.key}_status`, status === "done" ? "pending" : "done")} style={{
+                            padding: "4px 11px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                            border: `1px solid ${status === "done" ? COLORS.green : COLORS.line}`,
+                            background: status === "done" ? COLORS.green : "#fff",
+                            color: status === "done" ? "#fff" : COLORS.slate,
+                          }}>
+                            {status === "done" ? "✓ Done" : "Pending"}
+                          </button>
+                        </div>
+                        <textarea defaultValue={m[`${stage.key}_notes`] || ""} onBlur={(e) => updateMmi(m.id, `${stage.key}_notes`, e.target.value)}
+                          rows={2} style={{ width: "100%", padding: "8px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 12.5, fontFamily: "inherit", boxSizing: "border-box", marginBottom: stage.key !== "measure" ? 8 : 0 }} />
+                        {stage.key === "monitor" && (
+                          <input placeholder="Frequency — e.g. Weekly" defaultValue={m.monitor_frequency || ""} onBlur={(e) => updateMmi(m.id, "monitor_frequency", e.target.value)}
+                            style={{ width: "100%", maxWidth: 220, padding: "7px 9px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 12.5, boxSizing: "border-box" }} />
+                        )}
+                        {stage.key === "improve" && (
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <input placeholder="Target value/outcome" defaultValue={m.improve_target || ""} onBlur={(e) => updateMmi(m.id, "improve_target", e.target.value)}
+                              style={{ flex: "1 1 160px", padding: "7px 9px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 12.5 }} />
+                            <input type="date" defaultValue={m.improve_deadline || ""} onBlur={(e) => updateMmi(m.id, "improve_deadline", e.target.value)}
+                              style={{ padding: "7px 9px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 12.5 }} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+              {mmiRecords.length === 0 && <div style={{ fontSize: 13, color: COLORS.slate, fontStyle: "italic" }}>No M-M-I cycles yet — start one above.</div>}
             </div>
           )}
         </div>

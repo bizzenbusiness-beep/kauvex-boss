@@ -1095,7 +1095,7 @@ const REG_QUESTIONS = [
   { key: "q8", title: "ആഴ്ചയുടെ അവസാന ദിവസങ്ങളിൽ ഒരു പ്രത്യേക പ്ലാൻ തയ്യാറാക്കി, അത് കൃത്യമായി നടപ്പിലാക്കാറുണ്ടോ?" },
 ];
 
-function RegistrationForm() {
+export function RegistrationForm() {
   const [draft, setDraft] = useState({
     name: "", business: "", phone: "", whatsapp: "", email: "", location: "",
     q1: "", q2: "", q3: "", q4: "", q5: "", q6: "", q7: "", q8: "", q9: "", final_need: "",
@@ -1215,10 +1215,107 @@ function RegistrationForm() {
 }
 
 /* ---------------- REGISTRATIONS (staff-only viewer) ---------------- */
+function StaffRegistrationForm({ record, onClose, onSaved }) {
+  const isEdit = !!record;
+  const [draft, setDraft] = useState({
+    name: record?.name || "", business: record?.business || "", phone: record?.phone || "",
+    whatsapp: record?.whatsapp || "", email: record?.email || "", location: record?.location || "",
+    q1: record?.q1 || "", q2: record?.q2 || "", q3: record?.q3 || "", q4: record?.q4 || "",
+    q5: record?.q5 || "", q6: record?.q6 || "", q7: record?.q7 || "", q8: record?.q8 || "",
+    q9: record?.q9 || "", final_need: record?.final_need || "",
+    office_phase_status: record?.office_phase_status || "pending",
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+
+  function setField(key, value) {
+    setDraft((d) => ({ ...d, [key]: value }));
+  }
+
+  async function submit() {
+    setErr(null);
+    if (!draft.name.trim() || !draft.business.trim() || !draft.phone.trim()) {
+      setErr("Name, business, and phone are required.");
+      return;
+    }
+    setSaving(true);
+    const query = isEdit
+      ? supabase.from("diagnostic_registrations").update(draft).eq("id", record.id)
+      : supabase.from("diagnostic_registrations").insert(draft);
+    const { error } = await query;
+    setSaving(false);
+    if (error) { setErr(error.message); return; }
+    onSaved();
+    onClose();
+  }
+
+  const fieldStyle = { width: "100%", padding: "8px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13, marginTop: 4 };
+  const labelStyle = { fontSize: 11, color: COLORS.slate, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(20,20,20,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 2, padding: 24, width: 640, maxHeight: "88vh", overflow: "auto" }}>
+        <div style={{ fontFamily: FONT_SERIF, fontSize: 17, marginBottom: 4, color: COLORS.ink }}>
+          {isEdit ? "Edit Registration" : "New Entry — First Phase [Office]"}
+        </div>
+        <p style={{ fontSize: 12, color: COLORS.slate, marginBottom: 16 }}>
+          {isEdit ? "Verify or update this person's diagnostic answers." : "For walk-in / phone contacts who didn't use the public registration link."}
+        </p>
+
+        {err && <div style={{ fontSize: 12, color: COLORS.red, marginBottom: 12 }}>{err}</div>}
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div><div style={labelStyle}>Name *</div><input style={fieldStyle} value={draft.name} onChange={(e) => setField("name", e.target.value)} /></div>
+          <div><div style={labelStyle}>Business *</div><input style={fieldStyle} value={draft.business} onChange={(e) => setField("business", e.target.value)} /></div>
+          <div><div style={labelStyle}>Phone *</div><input style={fieldStyle} value={draft.phone} onChange={(e) => setField("phone", e.target.value)} /></div>
+          <div><div style={labelStyle}>WhatsApp</div><input style={fieldStyle} value={draft.whatsapp} onChange={(e) => setField("whatsapp", e.target.value)} /></div>
+          <div><div style={labelStyle}>Email</div><input style={fieldStyle} value={draft.email} onChange={(e) => setField("email", e.target.value)} /></div>
+          <div><div style={labelStyle}>Location</div><input style={fieldStyle} value={draft.location} onChange={(e) => setField("location", e.target.value)} /></div>
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <div style={labelStyle}>First Phase [Office] status</div>
+          <select style={fieldStyle} value={draft.office_phase_status} onChange={(e) => setField("office_phase_status", e.target.value)}>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="ready_for_health_checkup">Ready for Business Health Checkup</option>
+          </select>
+        </div>
+
+        {REG_QUESTIONS.map((qq, i) => (
+          <div key={qq.key} style={{ marginBottom: 12 }}>
+            <div style={labelStyle}>{i + 1}. {qq.title}</div>
+            <textarea style={{ ...fieldStyle, minHeight: 55 }} value={draft[qq.key]} onChange={(e) => setField(qq.key, e.target.value)} />
+          </div>
+        ))}
+
+        <div style={{ marginBottom: 14 }}>
+          <div style={labelStyle}>9. 90-day roadmap സന്നദ്ധത (അതെ / അല്ല)</div>
+          <input style={fieldStyle} value={draft.q9} onChange={(e) => setField("q9", e.target.value)} />
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={labelStyle}>ആവശ്യമുള്ള സഹായം</div>
+          <textarea style={{ ...fieldStyle, minHeight: 60 }} value={draft.final_need} onChange={(e) => setField("final_need", e.target.value)} />
+        </div>
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onClose} disabled={saving} style={{ padding: "9px 16px", background: "transparent", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13, cursor: "pointer" }}>Cancel</button>
+          <button onClick={submit} disabled={saving} style={{ padding: "9px 16px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+            {saving ? "Saving..." : isEdit ? "Save Changes" : "Create Entry"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RegistrationsModule() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
+  const [showNew, setShowNew] = useState(false);
+  const [editing, setEditing] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -1229,10 +1326,19 @@ function RegistrationsModule() {
   useEffect(() => { load(); }, []);
 
   const cardStyle = { border: `1px solid ${COLORS.line}`, borderRadius: 2, padding: 16, background: "#fff", marginBottom: 10 };
+  const statusLabel = { pending: "Pending", in_progress: "In Progress", ready_for_health_checkup: "Ready for Health Checkup" };
 
   return (
     <div>
-      <SectionHeading eyebrow="Aug 10 Event" title="Registrations" />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+        <SectionHeading eyebrow="Aug 10 Event" title="Registrations" />
+        <button onClick={() => setShowNew(true)} style={{
+          display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", background: COLORS.ink, color: "#fff",
+          border: "none", borderRadius: 2, fontWeight: 600, fontSize: 13, cursor: "pointer",
+        }}>
+          + New Entry
+        </button>
+      </div>
       <p style={{ fontSize: 12.5, color: COLORS.slate, marginBottom: 16 }}>{rows.length} registration(s) so far.</p>
 
       {loading ? (
@@ -1242,12 +1348,16 @@ function RegistrationsModule() {
       ) : (
         rows.map((r) => (
           <div key={r.id} style={cardStyle}>
-            <div style={{ display: "flex", justifyContent: "space-between", cursor: "pointer" }} onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
-              <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ cursor: "pointer", flex: 1 }} onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
                 <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.ink }}>{r.name} — {r.business}</div>
                 <div style={{ fontSize: 12, color: COLORS.slate }}>{r.phone} {r.whatsapp ? `· WA: ${r.whatsapp}` : ""} {r.location ? `· ${r.location}` : ""}</div>
+                <div style={{ fontSize: 11, color: COLORS.amber, marginTop: 4, fontWeight: 600 }}>{statusLabel[r.office_phase_status] || "Pending"}</div>
               </div>
-              <div style={{ fontSize: 12, color: COLORS.slate }}>{new Date(r.created_at).toLocaleDateString()}</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button onClick={() => setEditing(r)} style={{ padding: "6px 12px", background: "transparent", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 12, cursor: "pointer" }}>Edit</button>
+                <div style={{ fontSize: 12, color: COLORS.slate }}>{new Date(r.created_at).toLocaleDateString()}</div>
+              </div>
             </div>
             {expanded === r.id && (
               <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${COLORS.line}`, fontSize: 13, color: COLORS.ink, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1261,6 +1371,9 @@ function RegistrationsModule() {
           </div>
         ))
       )}
+
+      {showNew && <StaffRegistrationForm onClose={() => setShowNew(false)} onSaved={load} />}
+      {editing && <StaffRegistrationForm record={editing} onClose={() => setEditing(null)} onSaved={load} />}
     </div>
   );
 }

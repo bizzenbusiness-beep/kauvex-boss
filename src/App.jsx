@@ -572,7 +572,9 @@ const ROLE_LABELS = {
   sales_manager: "Sales Manager",
   staff: "Office Staff",
   bso: "System Administrator",
+  operations: "Operations",
   hr: "HR",
+  hr_manager: "HR Manager",
   marketing_executive: "Marketing Executive",
   marketing_manager: "Marketing Manager",
   team_leader: "Team Leader",
@@ -586,7 +588,7 @@ const ROLE_LABELS = {
 };
 const KAUVEX_ROLES = ["platform_owner", "platform_dev", "platform_support", "platform_bom", "platform_investor"];
 // Company-side roles with full admin/leadership access (matches is_company_admin_or_leader() in SQL)
-const COMPANY_ADMIN_ROLES = ["bdd", "bgm", "cbo", "bom", "bdm", "cgo", "bso"];
+const COMPANY_ADMIN_ROLES = ["bdd", "bgm", "cbo", "bom", "bdm", "cgo", "bso", "hr_manager"];
 function hasFullVisibility(role) {
   return KAUVEX_ROLES.includes(role) || COMPANY_ADMIN_ROLES.includes(role);
 }
@@ -596,6 +598,672 @@ const BFSP_LABELS = {
   bfspc: "BFSPC · Creation",
   bfspi: "BFSPI · Implementation",
 };
+
+const BUSINESS_STAGES = ["New Business", "Struggle", "Survival", "Profitable", "Scalable", "Established Business", "Legacy"];
+const LEGAL_STRUCTURES = ["Sole Proprietorship", "Partnership", "LLP", "Pvt Ltd", "Public Ltd"];
+const TEAM_SIZES = ["Solo", "Small Team (2-10)", "Mid Team (11-50)", "Big Team/Enterprise (50+)"];
+
+/* ---------------- ADD CLIENT MODAL ---------------- */
+function AddClientModal({ onClose, onCreated, company }) {
+  const isEdit = !!company;
+  const [name, setName] = useState(company?.name || "");
+  const [subdomain, setSubdomain] = useState(company?.subdomain || "");
+  const [bfspCategory, setBfspCategory] = useState(company?.bfsp_category || "bfspi");
+  const [businessStage, setBusinessStage] = useState(company?.business_stage || BUSINESS_STAGES[0]);
+  const [legalStructure, setLegalStructure] = useState(company?.legal_structure || LEGAL_STRUCTURES[0]);
+  const [teamSize, setTeamSize] = useState(company?.team_size || TEAM_SIZES[0]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function submit() {
+    setErr(null);
+    if (!name.trim()) { setErr("Client name is required."); return; }
+    setBusy(true);
+    const payload = {
+      name: name.trim(),
+      subdomain: subdomain.trim() || null,
+      bfsp_category: bfspCategory,
+      business_stage: businessStage,
+      legal_structure: legalStructure,
+      team_size: teamSize,
+    };
+    const query = isEdit
+      ? supabase.from("companies").update(payload).eq("id", company.id).select().single()
+      : supabase.from("companies").insert(payload).select().single();
+    const { data, error } = await query;
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    onCreated(data);
+    onClose();
+  }
+
+  const fieldStyle = {
+    width: "100%", background: COLORS.paper, border: `1px solid ${COLORS.line}`, color: COLORS.ink,
+    padding: "9px 10px", borderRadius: 2, fontSize: 12.5, fontFamily: FONT_SANS, marginTop: 4,
+  };
+  const labelStyle = { fontSize: 9.5, color: COLORS.slate, textTransform: "uppercase", letterSpacing: 1.5 };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(20,20,20,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+      <div style={{ background: "#fff", borderRadius: 2, padding: 28, width: 420, maxHeight: "90vh", overflow: "auto" }}>
+        <div style={{ fontFamily: FONT_SERIF, fontSize: 17, marginBottom: 16, color: COLORS.ink }}>{isEdit ? "Edit Company" : "Add Company"}</div>
+
+        {err && <div style={{ fontSize: 12, color: "#b3261e", marginBottom: 12 }}>{err}</div>}
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={labelStyle}>Client name</div>
+          <input value={name} onChange={(e) => setName(e.target.value)} style={fieldStyle} placeholder="e.g. Malabar Furniture" />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={labelStyle}>Subdomain (optional)</div>
+          <input value={subdomain} onChange={(e) => setSubdomain(e.target.value)} style={fieldStyle} placeholder="e.g. malabar" />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={labelStyle}>BFSP Category</div>
+          <select value={bfspCategory} onChange={(e) => setBfspCategory(e.target.value)} style={fieldStyle}>
+            {Object.entries(BFSP_LABELS).map(([k, label]) => (
+              <option key={k} value={k}>{label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={labelStyle}>Business stage</div>
+          <select value={businessStage} onChange={(e) => setBusinessStage(e.target.value)} style={fieldStyle}>
+            {BUSINESS_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={labelStyle}>Legal structure</div>
+          <select value={legalStructure} onChange={(e) => setLegalStructure(e.target.value)} style={fieldStyle}>
+            {LEGAL_STRUCTURES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={labelStyle}>Team size</div>
+          <select value={teamSize} onChange={(e) => setTeamSize(e.target.value)} style={fieldStyle}>
+            {TEAM_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onClose} disabled={busy} style={{ padding: "9px 16px", background: "transparent", border: `1px solid ${COLORS.line}`, borderRadius: 2, fontSize: 13, cursor: "pointer" }}>
+            Cancel
+          </button>
+          <button onClick={submit} disabled={busy} style={{ padding: "9px 16px", background: COLORS.ink, color: "#fff", border: "none", borderRadius: 2, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+            {busy ? "Saving..." : isEdit ? "Save Changes" : "Create Client"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- COMPANIES (client management) ---------------- */
+function CompaniesModule() {
+  const [companies, setCompanies] = useState([]);
+  const [counts, setCounts] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  async function load() {
+    setLoading(true);
+    const { data: cos } = await supabase.from("companies").select("*").eq("is_own_business", false).order("created_at", { ascending: true });
+    setCompanies(cos || []);
+    const { data: profs } = await supabase.from("profiles").select("company_id");
+    const grouped = {};
+    (profs || []).forEach((p) => {
+      if (!p.company_id) return;
+      grouped[p.company_id] = (grouped[p.company_id] || 0) + 1;
+    });
+    setCounts(grouped);
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function deleteCompany(c) {
+    const userCount = counts[c.id] || 0;
+    const warning = userCount > 0
+      ? `"${c.name}" has ${userCount} registered user(s). Deleting it will not delete those user accounts, but they will lose their company link. Delete "${c.name}" anyway?`
+      : `Delete "${c.name}"? This cannot be undone.`;
+    if (!window.confirm(warning)) return;
+    const { error } = await supabase.from("companies").delete().eq("id", c.id);
+    if (error) { alert("Could not delete: " + error.message); return; }
+    load();
+  }
+
+  const cardStyle = {
+    border: `1px solid ${COLORS.line}`, borderRadius: 2, padding: 20, background: "#fff",
+    display: "flex", flexDirection: "column", gap: 12, minWidth: 280,
+  };
+  const badgeStyle = {
+    fontSize: 10.5, padding: "3px 9px", borderRadius: 20, background: COLORS.paper,
+    border: `1px solid ${COLORS.line}`, color: COLORS.slate,
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+        <SectionHeading eyebrow="Client Management" title="Companies" />
+        <button onClick={() => setShowAdd(true)} style={{
+          display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", background: COLORS.ink, color: "#fff",
+          border: "none", borderRadius: 2, fontWeight: 600, fontSize: 13, cursor: "pointer",
+        }}>
+          + Add Company
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ fontSize: 13, color: COLORS.slate }}>Loading...</div>
+      ) : companies.length === 0 ? (
+        <div style={{ fontSize: 13, color: COLORS.slate }}>No companies yet — add the first one above.</div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+          {companies.map((c) => (
+            <div key={c.id} style={cardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ fontFamily: FONT_SERIF, fontSize: 15, color: COLORS.ink }}>{c.name}</div>
+                <span style={badgeStyle}>{BFSP_LABELS[c.bfsp_category] || c.bfsp_category || "—"}</span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {c.business_stage && <span style={badgeStyle}>{c.business_stage}</span>}
+                {c.team_size && <span style={badgeStyle}>{c.team_size}</span>}
+                {c.legal_structure && <span style={badgeStyle}>{c.legal_structure}</span>}
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.slate }}>
+                {counts[c.id] || 0} registered user{(counts[c.id] || 0) === 1 ? "" : "s"}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                <button onClick={() => setEditing(c)} style={{
+                  flex: 1, padding: "7px 10px", background: "transparent", border: `1px solid ${COLORS.line}`,
+                  borderRadius: 2, fontSize: 12, cursor: "pointer",
+                }}>
+                  Edit
+                </button>
+                <button
+                  onClick={() => alert("To create a real login for this client's team, use the local admin script (same pattern used for today's staff onboarding) — creating logins directly from the browser isn't safe.")}
+                  style={{
+                    flex: 1, padding: "7px 10px", background: "transparent", border: `1px solid ${COLORS.line}`,
+                    borderRadius: 2, fontSize: 12, cursor: "pointer",
+                  }}
+                >
+                  + Add user
+                </button>
+              </div>
+              <button
+                onClick={() => deleteCompany(c)}
+                style={{
+                  width: "100%", marginTop: 8, padding: "7px 10px", background: "transparent",
+                  border: `1px solid ${COLORS.red}`, borderRadius: 2, fontSize: 12, cursor: "pointer", color: COLORS.red,
+                }}
+              >
+                Delete Company
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showAdd && (
+        <AddClientModal onClose={() => setShowAdd(false)} onCreated={() => load()} />
+      )}
+      {editing && (
+        <AddClientModal company={editing} onClose={() => setEditing(null)} onCreated={() => load()} />
+      )}
+    </div>
+  );
+}
+
+/* ---------------- OUR BUSINESS (Kauzar66's own units, hierarchical) ---------------- */
+function OwnBusinessModule() {
+  const [rows, setRows] = useState([]);
+  const [counts, setCounts] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    setLoading(true);
+    const { data: cos } = await supabase.from("companies").select("*").eq("is_own_business", true).order("name", { ascending: true });
+    setRows(cos || []);
+    const { data: profs } = await supabase.from("profiles").select("company_id");
+    const grouped = {};
+    (profs || []).forEach((p) => {
+      if (!p.company_id) return;
+      grouped[p.company_id] = (grouped[p.company_id] || 0) + 1;
+    });
+    setCounts(grouped);
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  const topLevel = rows.filter((r) => !r.parent_company_id);
+  const childrenOf = (id) => rows.filter((r) => r.parent_company_id === id);
+
+  const cardStyle = {
+    border: `1px solid ${COLORS.line}`, borderRadius: 2, padding: 18, background: "#fff",
+  };
+  const badgeStyle = {
+    fontSize: 10.5, padding: "3px 9px", borderRadius: 20, background: COLORS.paper,
+    border: `1px solid ${COLORS.line}`, color: COLORS.slate,
+  };
+
+  return (
+    <div>
+      <SectionHeading eyebrow="Kauzar66 Creative Venture Pvt Ltd" title="Our Business" />
+      <p style={{ fontSize: 12.5, color: COLORS.slate, marginTop: 4, marginBottom: 20 }}>
+        Our own units — not client accounts. Kept separate from the Companies (client) list.
+      </p>
+
+      {loading ? (
+        <div style={{ fontSize: 13, color: COLORS.slate }}>Loading...</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {topLevel.map((biz) => (
+            <div key={biz.id} style={cardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ fontFamily: FONT_SERIF, fontSize: 17, color: COLORS.ink }}>{biz.name}</div>
+                {biz.bfsp_category && <span style={badgeStyle}>{BFSP_LABELS[biz.bfsp_category] || biz.bfsp_category}</span>}
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.slate, marginTop: 4 }}>
+                {counts[biz.id] || 0} registered user{(counts[biz.id] || 0) === 1 ? "" : "s"}
+              </div>
+
+              {childrenOf(biz.id).length > 0 && (
+                <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {childrenOf(biz.id).map((child) => (
+                    <div key={child.id} style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "10px 14px", background: COLORS.paper, borderRadius: 2,
+                      border: `1px solid ${COLORS.line}`,
+                    }}>
+                      <div style={{ fontSize: 13, color: COLORS.ink }}>{child.name}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {child.bfsp_category && <span style={badgeStyle}>{BFSP_LABELS[child.bfsp_category] || child.bfsp_category}</span>}
+                        <span style={{ fontSize: 11.5, color: COLORS.slate }}>
+                          {counts[child.id] || 0} user{(counts[child.id] || 0) === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- TEAM (role management, company-scoped) ---------------- */
+const ASSIGNABLE_ROLES = [
+  "bdd", "bgm", "cbo", "bom", "bdm", "cgo", "accountant", "manager", "sales",
+  "sales_manager", "staff", "bso", "operations", "hr", "hr_manager",
+  "marketing_executive", "marketing_manager", "team_leader", "company_investor",
+];
+
+function TeamModule({ viewCompanyId }) {
+  const [me, setMe] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(null);
+  const [savingId, setSavingId] = useState(null);
+
+  async function load() {
+    setLoading(true);
+    setErr(null);
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth?.user) { setLoading(false); return; }
+    const { data: myProf } = await supabase.from("profiles").select("id,company_id,role").eq("id", auth.user.id).single();
+    setMe(myProf || null);
+    // Platform-level staff (e.g. platform_owner) have no company_id of their own —
+    // for them, viewCompanyId (the "Viewing Client" selection) tells us whose team to show.
+    const targetCompanyId = viewCompanyId || myProf?.company_id;
+    if (!targetCompanyId) { setLoading(false); return; }
+    const { data: profs, error } = await supabase.from("profiles").select("*").eq("company_id", targetCompanyId).order("full_name", { ascending: true });
+    if (error) { setErr(error.message); setLoading(false); return; }
+    setRows(profs || []);
+    setLoading(false);
+  }
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [viewCompanyId]);
+
+  async function changeRole(targetId, newRole) {
+    setSavingId(targetId);
+    setErr(null);
+    const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", targetId);
+    setSavingId(null);
+    if (error) { setErr(error.message); return; }
+    setRows((r) => r.map((row) => (row.id === targetId ? { ...row, role: newRole } : row)));
+  }
+
+  const cardStyle = { border: `1px solid ${COLORS.line}`, borderRadius: 2, padding: 0, background: "#fff", overflow: "hidden" };
+
+  return (
+    <div>
+      <SectionHeading eyebrow="Access Management" title="Team" />
+      <p style={{ fontSize: 12.5, color: COLORS.slate, marginTop: 4, marginBottom: 16 }}>
+        Everyone in your company. Change a person's role below — platform-level roles can’t be assigned here.
+      </p>
+
+      {err && <div style={{ fontSize: 12, color: "#b3261e", marginBottom: 12 }}>{err}</div>}
+
+      {loading ? (
+        <div style={{ fontSize: 13, color: COLORS.slate }}>Loading...</div>
+      ) : !(viewCompanyId || me?.company_id) ? (
+        <div style={{ fontSize: 13, color: COLORS.slate }}>
+          {viewCompanyId === null ? "No company selected — use the Viewing Client switcher above." : "No company on your profile yet."}
+        </div>
+      ) : (
+        <div style={cardStyle}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: COLORS.ink }}>
+                {["Name", "Email", "Role"].map((h) => (
+                  <th key={h} style={{ textAlign: "left", padding: "10px 14px", color: "#fff", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const isSelf = r.id === me.id;
+                return (
+                  <tr key={r.id} style={{ borderTop: `1px solid ${COLORS.line}`, background: i % 2 ? "#FAFAF7" : "#fff" }}>
+                    <td style={{ padding: "10px 14px", fontSize: 13.5, color: COLORS.ink, fontWeight: 500 }}>
+                      {r.full_name || "—"} {isSelf && <span style={{ fontSize: 10.5, color: COLORS.slate }}>(you)</span>}
+                    </td>
+                    <td style={{ padding: "10px 14px", fontSize: 12.5, color: COLORS.slate }}>{r.email || "—"}</td>
+                    <td style={{ padding: "10px 14px" }}>
+                      {isSelf ? (
+                        <span style={{ fontSize: 13, color: COLORS.slate }}>{ROLE_LABELS[r.role] || r.role}</span>
+                      ) : (
+                        <select
+                          value={r.role}
+                          disabled={savingId === r.id}
+                          onChange={(e) => changeRole(r.id, e.target.value)}
+                          style={{
+                            fontSize: 12.5, padding: "6px 8px", borderRadius: 2, border: `1px solid ${COLORS.line}`,
+                            background: COLORS.paper, color: COLORS.ink,
+                          }}
+                        >
+                          {ASSIGNABLE_ROLES.map((k) => (
+                            <option key={k} value={k}>{ROLE_LABELS[k] || k}</option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {rows.length === 0 && (
+                <tr><td colSpan={3} style={{ padding: "16px 14px", fontSize: 13, color: COLORS.slate, fontStyle: "italic" }}>No team members found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- DASHBOARD (greeting + real-data summary) ---------------- */
+function DashboardModule({ profile, isKauvexStaff, viewCompanyId }) {
+  const [loading, setLoading] = useState(true);
+  const [companyName, setCompanyName] = useState(null);
+  const [userCount, setUserCount] = useState(0);
+  const [clientCount, setClientCount] = useState(0);
+  const [ownBizCount, setOwnBizCount] = useState(0);
+
+  async function load() {
+    setLoading(true);
+    if (isKauvexStaff) {
+      const { count: clients } = await supabase.from("companies").select("*", { count: "exact", head: true }).eq("is_own_business", false);
+      const { count: ownBiz } = await supabase.from("companies").select("*", { count: "exact", head: true }).eq("is_own_business", true);
+      setClientCount(clients || 0);
+      setOwnBizCount(ownBiz || 0);
+      if (viewCompanyId) {
+        const { data: co } = await supabase.from("companies").select("name").eq("id", viewCompanyId).single();
+        setCompanyName(co?.name || null);
+        const { count: users } = await supabase.from("profiles").select("*", { count: "exact", head: true }).eq("company_id", viewCompanyId);
+        setUserCount(users || 0);
+      }
+    } else if (profile.company_id) {
+      const { data: co } = await supabase.from("companies").select("name").eq("id", profile.company_id).single();
+      setCompanyName(co?.name || null);
+      const { count: users } = await supabase.from("profiles").select("*", { count: "exact", head: true }).eq("company_id", profile.company_id);
+      setUserCount(users || 0);
+    }
+    setLoading(false);
+  }
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [viewCompanyId]);
+
+  const cardStyle = { border: `1px solid ${COLORS.line}`, borderRadius: 4, padding: 20, background: "#fff", flex: 1, minWidth: 160 };
+  const firstName = (profile.full_name || "").split(" ")[0] || "there";
+
+  return (
+    <div>
+      <SectionHeading eyebrow="Overview" title={`Welcome, ${firstName}`} />
+      <p style={{ fontSize: 13, color: COLORS.slate, marginTop: 4, marginBottom: 20 }}>
+        {companyName ? `${companyName} · ` : ""}{new Date().toLocaleDateString(undefined, { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+      </p>
+
+      {loading ? (
+        <div style={{ fontSize: 13, color: COLORS.slate }}>Loading...</div>
+      ) : (
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+          {isKauvexStaff ? (
+            <>
+              <div style={cardStyle}>
+                <div style={{ fontSize: 10.5, color: COLORS.slate, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Client Companies</div>
+                <div style={{ fontFamily: FONT_SERIF, fontSize: 28, color: COLORS.ink }}>{clientCount}</div>
+              </div>
+              <div style={cardStyle}>
+                <div style={{ fontSize: 10.5, color: COLORS.slate, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Our Business Units</div>
+                <div style={{ fontFamily: FONT_SERIF, fontSize: 28, color: COLORS.ink }}>{ownBizCount}</div>
+              </div>
+              {companyName && (
+                <div style={cardStyle}>
+                  <div style={{ fontSize: 10.5, color: COLORS.slate, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{companyName} — Registered Users</div>
+                  <div style={{ fontFamily: FONT_SERIF, fontSize: 28, color: COLORS.ink }}>{userCount}</div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={cardStyle}>
+              <div style={{ fontSize: 10.5, color: COLORS.slate, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Your Company's Registered Users</div>
+              <div style={{ fontFamily: FONT_SERIF, fontSize: 28, color: COLORS.ink }}>{userCount}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- PUBLIC REGISTRATION FORM (no login required) ---------------- */
+const REG_QUESTIONS = [
+  { key: "q1", title: "നിങ്ങളുടെ ടീം സ്വയം initiative എടുക്കാറുണ്ടോ?" },
+  { key: "q2", title: "ബിസിനസിന്റെ വളർച്ചയ്ക്കുള്ള യഥാർത്ഥ തടസ്സം എന്താണെന്ന് കണ്ടെത്തിയിട്ടുണ്ടോ?" },
+  { key: "q3", title: "ഇതിനുമുമ്പ് 90 ദിവസത്തിനുള്ളിൽ നടപ്പിലാക്കി വിജയകരമാക്കാൻ പറ്റുന്ന ഒരു ഗ്രോത്ത് പ്ലാൻ നിങ്ങൾ തയ്യാറാക്കിയിട്ടുണ്ടോ?" },
+  { key: "q4", title: "ഒരു ദിവസം പോലും നിങ്ങളില്ലെങ്കിൽ നിങ്ങളുടെ ബിസിനസ് തടസ്സമില്ലാതെ നടക്കുമോ?" },
+  { key: "q5", title: "ഓരോ തീരുമാനത്തിനും ജീവനക്കാർ നിങ്ങളെത്തന്നെ കാത്തിരിക്കുന്ന ഒരു അവസ്ഥയിലാണോ നിങ്ങൾ?" },
+  { key: "q6", title: "ബിസിനസ് വളരുന്നില്ല എന്നത് ഒരു തോന്നൽ മാത്രമാണോ, അതോ അതിൽ ഉറപ്പുണ്ടോ?" },
+  { key: "q7", title: "90% ബിസിനസ് ഉടമകളും ചെയ്യാറുള്ള പ്രധാന തെറ്റുകള് എന്താണെന്ന് നിങ്ങളുടെ അഭിപ്രായത്തിൽ?" },
+  { key: "q8", title: "ആഴ്ചയുടെ അവസാന ദിവസങ്ങളിൽ ഒരു പ്രത്യേക പ്ലാൻ തയ്യാറാക്കി, അത് കൃത്യമായി നടപ്പിലാക്കാറുണ്ടോ?" },
+];
+
+function RegistrationForm() {
+  const [draft, setDraft] = useState({
+    name: "", business: "", phone: "", whatsapp: "", email: "", location: "",
+    q1: "", q2: "", q3: "", q4: "", q5: "", q6: "", q7: "", q8: "", q9: "", final_need: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState(null);
+
+  function setField(key, value) {
+    setDraft((d) => ({ ...d, [key]: value }));
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setErr(null);
+    if (!draft.name.trim() || !draft.business.trim() || !draft.phone.trim()) {
+      setErr("പേര്, ബിസിനസ്, ഫോൺ നമ്പർ എന്നിവ നിര്ബന്ധമാണ്.");
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.from("diagnostic_registrations").insert(draft);
+    setSubmitting(false);
+    if (error) { setErr(error.message); return; }
+    setDone(true);
+  }
+
+  const fieldStyle = {
+    width: "100%", padding: "11px 13px", border: "1.5px solid #D8CFBE", borderRadius: 9,
+    fontSize: 15.5, fontFamily: "'Noto Sans Malayalam','Inter',sans-serif", background: "#FFFEFC",
+  };
+  const labelStyle = { display: "block", fontWeight: 700, fontSize: 14.5, color: "#0F3841", marginBottom: 7 };
+  const cardStyle = { background: "#fff", border: "1px solid #D8CFBE", borderRadius: 16, padding: "28px 24px", marginBottom: 20 };
+
+  if (done) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#FBF6EE", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ ...cardStyle, maxWidth: 480, textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>
+          <h2 style={{ fontFamily: "'Fraunces',serif", color: "#0F3841" }}>തയ്യാറായി!</h2>
+          <p style={{ color: "#6C7A78" }}>നിങ്ങളുടെ റജിസ്ട്രേഷൻ സ്വീകരിച്ചു. ആഗസ്റ്റ് 10-ന് കാണാം! 🙏</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#FBF6EE", fontFamily: "'Inter','Noto Sans Malayalam',sans-serif" }}>
+      <div style={{
+        background: "linear-gradient(160deg,#0F3841,#1F5661 70%)", color: "#F6EFE2",
+        padding: "48px 24px 64px", textAlign: "center",
+      }}>
+        <div style={{ fontSize: 12.5, letterSpacing: "0.16em", textTransform: "uppercase", color: "#F2D9BC", fontWeight: 600, marginBottom: 10 }}>
+          BIZZEN BUSINESS FRAMEX
+        </div>
+        <h1 style={{ fontFamily: "'Fraunces',serif", fontWeight: 800, fontSize: 32, margin: "0 0 8px" }}>
+          ബിസിനസ് ഡയഗ്നോസ്റ്റിക് രജിസ്ട്രേഷൻ
+        </h1>
+        <div style={{ fontSize: 14 }}>ഓഗസ്റ്റ് 10 · Chef Lebanon, Kottakkal</div>
+      </div>
+
+      <form onSubmit={submit} style={{ maxWidth: 700, margin: "-40px auto 0", padding: "0 20px 60px", position: "relative" }}>
+        <div style={cardStyle}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+            <div><label style={labelStyle}>പേര് *</label><input style={fieldStyle} value={draft.name} onChange={(e) => setField("name", e.target.value)} required /></div>
+            <div><label style={labelStyle}>ബിസിനസ് *</label><input style={fieldStyle} value={draft.business} onChange={(e) => setField("business", e.target.value)} required /></div>
+            <div><label style={labelStyle}>ഫോൺ നമ്പർ *</label><input style={fieldStyle} value={draft.phone} onChange={(e) => setField("phone", e.target.value)} required /></div>
+            <div><label style={labelStyle}>വാട്സാപ്</label><input style={fieldStyle} value={draft.whatsapp} onChange={(e) => setField("whatsapp", e.target.value)} /></div>
+            <div><label style={labelStyle}>ഇമെയിൽ</label><input style={fieldStyle} value={draft.email} onChange={(e) => setField("email", e.target.value)} /></div>
+            <div><label style={labelStyle}>ലൊക്കേഷൻ</label><input style={fieldStyle} value={draft.location} onChange={(e) => setField("location", e.target.value)} /></div>
+          </div>
+        </div>
+
+        {REG_QUESTIONS.map((qq, i) => (
+          <div key={qq.key} style={cardStyle}>
+            <div style={{ fontFamily: "'Fraunces',serif", fontWeight: 700, fontSize: 18, color: "#0F3841", marginBottom: 12 }}>
+              {i + 1}. {qq.title}
+            </div>
+            <textarea
+              style={{ ...fieldStyle, minHeight: 70, resize: "vertical" }}
+              value={draft[qq.key]}
+              onChange={(e) => setField(qq.key, e.target.value)}
+              placeholder="നിങ്ങളുടെ ഉത്തരം എഴുതുക..."
+            />
+          </div>
+        ))}
+
+        <div style={cardStyle}>
+          <div style={{ fontFamily: "'Fraunces',serif", fontWeight: 700, fontSize: 18, color: "#0F3841", marginBottom: 12 }}>
+            9. 90 ദിവസത്തെ ഗ്രോത്ത് റോഡ്‘മാപ്പിൽ സമയം ചെലവഴിക്കാൻ സന്നദ്ധനാണോ?
+          </div>
+          <div style={{ display: "flex", gap: 14 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, border: "1.5px solid #D8CFBE", padding: "10px 18px", borderRadius: 9, cursor: "pointer" }}>
+              <input type="radio" name="q9" value="അതെ" checked={draft.q9 === "അതെ"} onChange={(e) => setField("q9", e.target.value)} /> അതെ
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, border: "1.5px solid #D8CFBE", padding: "10px 18px", borderRadius: 9, cursor: "pointer" }}>
+              <input type="radio" name="q9" value="അല്ല" checked={draft.q9 === "അല്ല"} onChange={(e) => setField("q9", e.target.value)} /> അല്ല
+            </label>
+          </div>
+        </div>
+
+        <div style={cardStyle}>
+          <label style={labelStyle}>നിലവിൽ ഏറ്റവും ആവശ്യമുള്ള സഹായം:</label>
+          <textarea style={{ ...fieldStyle, minHeight: 90 }} value={draft.final_need} onChange={(e) => setField("final_need", e.target.value)} />
+
+          {err && <div style={{ color: "#B23B2E", fontSize: 13, marginTop: 12 }}>{err}</div>}
+
+          <button type="submit" disabled={submitting} style={{
+            marginTop: 16, width: "100%", padding: "13px", background: "#C9762F", color: "#fff",
+            border: "none", borderRadius: 9, fontWeight: 700, fontSize: 15.5, cursor: "pointer",
+          }}>
+            {submitting ? "അയച്ചുകൊണ്ടിരിക്കുന്നു..." : "റജിസ്ട്രേഷൻ സമർപ്പിക്കുക →"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/* ---------------- REGISTRATIONS (staff-only viewer) ---------------- */
+function RegistrationsModule() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(null);
+
+  async function load() {
+    setLoading(true);
+    const { data } = await supabase.from("diagnostic_registrations").select("*").order("created_at", { ascending: false });
+    setRows(data || []);
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  const cardStyle = { border: `1px solid ${COLORS.line}`, borderRadius: 2, padding: 16, background: "#fff", marginBottom: 10 };
+
+  return (
+    <div>
+      <SectionHeading eyebrow="Aug 10 Event" title="Registrations" />
+      <p style={{ fontSize: 12.5, color: COLORS.slate, marginBottom: 16 }}>{rows.length} registration(s) so far.</p>
+
+      {loading ? (
+        <div style={{ fontSize: 13, color: COLORS.slate }}>Loading...</div>
+      ) : rows.length === 0 ? (
+        <div style={{ fontSize: 13, color: COLORS.slate }}>No registrations yet.</div>
+      ) : (
+        rows.map((r) => (
+          <div key={r.id} style={cardStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", cursor: "pointer" }} onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.ink }}>{r.name} — {r.business}</div>
+                <div style={{ fontSize: 12, color: COLORS.slate }}>{r.phone} {r.whatsapp ? `· WA: ${r.whatsapp}` : ""} {r.location ? `· ${r.location}` : ""}</div>
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.slate }}>{new Date(r.created_at).toLocaleDateString()}</div>
+            </div>
+            {expanded === r.id && (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${COLORS.line}`, fontSize: 13, color: COLORS.ink, display: "flex", flexDirection: "column", gap: 8 }}>
+                {REG_QUESTIONS.map((qq, i) => (
+                  <div key={qq.key}><b>{i + 1}. {qq.title}</b><br />{r[qq.key] || "—"}</div>
+                ))}
+                <div><b>90-day roadmap സന്നദ്ധത:</b> {r.q9 || "—"}</div>
+                <div><b>ആവശ്യമുള്ള സഹായം:</b> {r.final_need || "—"}</div>
+              </div>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
 
 /* ---------------- LOGIN SCREEN ---------------- */
 function Login() {
@@ -727,17 +1395,22 @@ function PendingAccess({ email, onSignOut }) {
 
 /* ---------------- SHELL ---------------- */
 const NAV = [
-  { key: "coord", label: "Project Coordination", i18n: "nav_coord", icon: LayoutGrid, Comp: ProjectCoordination },
+  { key: "dashboard", label: "Dashboard", i18n: "nav_dashboard", icon: LayoutGrid, Comp: DashboardModule },
+  { key: "coord", label: "Project Coordination", i18n: "nav_coord", icon: CheckCircle2, Comp: ProjectCoordination },
   { key: "hr", label: "HR", i18n: "nav_hr", icon: Users, Comp: HRModule },
   { key: "activity", label: "Activity", i18n: "nav_activity", icon: Activity, Comp: ActivityModule },
   { key: "measure", label: "Measure & Monitor", i18n: "nav_measure", icon: Gauge, Comp: MeasureMonitor },
   { key: "improve", label: "Improvement Calc", i18n: "nav_improve", icon: TrendingUp, Comp: ImprovementCalc },
   { key: "forms", label: "Forms & Trackers", i18n: "nav_forms", icon: FileText, Comp: null },
   { key: "framex", label: "BizZen Framex", i18n: "nav_framex", icon: Map, Comp: null },
+  { key: "companies", label: "Companies", i18n: "nav_companies", icon: Building2, Comp: CompaniesModule, kauvexOnly: true },
+  { key: "ourbiz", label: "Our Business", i18n: "nav_ourbiz", icon: Building2, Comp: OwnBusinessModule, kauvexOnly: true },
+  { key: "team", label: "Team", i18n: "nav_team", icon: Users, Comp: TeamModule, adminOnly: true },
+  { key: "registrations", label: "Registrations", i18n: "nav_registrations", icon: FileText, Comp: RegistrationsModule, kauvexOnly: true },
 ];
 
 function Dashboard({ profile, onSignOut }) {
-  const [active, setActive] = useState("coord");
+  const [active, setActive] = useState("dashboard");
   const isKauvexStaff = KAUVEX_ROLES.includes(profile.role);
   const [lang, setLang] = useState(() => {
     try { return localStorage.getItem("kauvex_lang") || "en"; } catch (e) { return "en"; }
@@ -750,10 +1423,11 @@ function Dashboard({ profile, onSignOut }) {
 
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState(profile.company_id || null);
+  const [showAddClient, setShowAddClient] = useState(false);
 
   useEffect(() => {
     if (!isKauvexStaff) return;
-    supabase.from("companies").select("id,name").order("name").then(({ data }) => {
+    supabase.from("companies").select("id,name").eq("is_own_business", false).order("name").then(({ data }) => {
       setCompanies(data || []);
       if (!selectedCompanyId && data && data.length) setSelectedCompanyId(data[0].id);
     });
@@ -764,7 +1438,9 @@ function Dashboard({ profile, onSignOut }) {
 
   // Roles without full company-admin access get a lighter nav — no HR module
   // (sensitive: happiness scores, evaluations)
-  const nav = hasFullVisibility(profile.role) ? NAV : NAV.filter((n) => n.key !== "hr");
+  const nav = (hasFullVisibility(profile.role) ? NAV : NAV.filter((n) => n.key !== "hr"))
+    .filter((n) => !n.kauvexOnly || isKauvexStaff)
+    .filter((n) => !n.adminOnly || hasFullVisibility(profile.role));
   const activeItem = nav.find((n) => n.key === active) || nav[0];
   const Active = activeItem.Comp;
 
@@ -783,8 +1459,8 @@ function Dashboard({ profile, onSignOut }) {
           </div>
 
           {isKauvexStaff && (
-            <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 2, padding: 16 }}>
-              <div style={{ fontSize: 9.5, color: COLORS.slate, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>Viewing Client</div>
+            <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 4, padding: 16, background: "#FDFCF9" }}>
+              <div style={{ fontSize: 9.5, color: COLORS.slate, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8, fontWeight: 600 }}>Viewing Client</div>
               <select
                 value={selectedCompanyId || ""}
                 onChange={(e) => setSelectedCompanyId(e.target.value)}
@@ -799,6 +1475,29 @@ function Dashboard({ profile, onSignOut }) {
                 ))}
               </select>
             </div>
+          )}
+
+          {isKauvexStaff && (
+            <button
+              onClick={() => setShowAddClient(true)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: "9px 12px", background: COLORS.ink, color: "#fff", border: "none",
+                borderRadius: 2, fontWeight: 600, fontSize: 12, cursor: "pointer",
+              }}
+            >
+              + Add Company
+            </button>
+          )}
+
+          {showAddClient && (
+            <AddClientModal
+              onClose={() => setShowAddClient(false)}
+              onCreated={(newCompany) => {
+                setCompanies((prev) => [...prev, newCompany].sort((a, b) => a.name.localeCompare(b.name)));
+                setSelectedCompanyId(newCompany.id);
+              }}
+            />
           )}
 
           <div>
@@ -817,20 +1516,26 @@ function Dashboard({ profile, onSignOut }) {
             </select>
           </div>
 
-          <nav style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 4 }}>
-            {nav.map(({ key, i18n }) => {
+          <nav style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 4 }}>
+            {nav.map(({ key, i18n, icon: Icon }) => {
               const isActive = key === active;
               return (
                 <button
                   key={key}
                   onClick={() => setActive(key)}
                   style={{
-                    color: isActive ? COLORS.ink : COLORS.slate, textDecoration: "none", background: "none", border: "none",
-                    padding: "11px 4px", fontSize: 12.5, letterSpacing: 0.4, textTransform: "uppercase", textAlign: "left",
-                    borderBottom: isActive ? `1px solid ${COLORS.gold}` : "1px solid transparent",
+                    display: "flex", alignItems: "center", gap: 10,
+                    color: isActive ? COLORS.ink : COLORS.slate,
+                    textDecoration: "none",
+                    background: isActive ? "rgba(199,161,90,0.12)" : "transparent",
+                    border: "none", borderRadius: 4,
+                    padding: "10px 10px", fontSize: 12.5, letterSpacing: 0.4, textTransform: "uppercase", textAlign: "left",
+                    borderLeft: isActive ? `3px solid ${COLORS.gold}` : "3px solid transparent",
                     fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: FONT_SANS,
+                    transition: "background 150ms ease, color 150ms ease",
                   }}
                 >
+                  {Icon && <Icon size={15} strokeWidth={isActive ? 2.2 : 1.8} style={{ flexShrink: 0 }} />}
                   {t(i18n, lang)}
                 </button>
               );
@@ -884,7 +1589,11 @@ function Dashboard({ profile, onSignOut }) {
           ) : active === "hr" ? (
             <HRModule companyId={effectiveCompanyId} />
           ) : (
-            <Active />
+            <Active
+              {...(activeItem.key === "team" ? { viewCompanyId: effectiveCompanyId } : {})}
+              {...(activeItem.key === "dashboard" ? { profile, isKauvexStaff, viewCompanyId: effectiveCompanyId } : {})}
+              {...(activeItem.key === "measure" ? { companyId: effectiveCompanyId } : {})}
+            />
           )}
           </Suspense>
         </div>

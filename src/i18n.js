@@ -19,6 +19,11 @@ const DICT = {
   nav_improve: { en: "Improvement Calc", ml: "മെച്ചപ്പെടുത്തൽ കാൽക്", manglish: "Improvement Calc", hi: "सुधार गणना", ar: "حاسبة التحسين" },
   nav_forms: { en: "Forms & Trackers", ml: "ഫോമുകളും ട്രാക്കറുകളും", manglish: "Forms & Trackers", hi: "फॉर्म और ट्रैकर", ar: "النماذج والمتتبعات" },
   nav_framex: { en: "BizZen Framex", ml: "ബിസ്‌സെൻ ഫ്രെയിംക്സ്", manglish: "BizZen Framex", hi: "बिज़ेन फ्रेमेक्स", ar: "بيزن فريمكس" },
+  nav_registrations: { en: "Registrations", ml: "റജിസ്ട്രേഷൻസ്", manglish: "Registrations", hi: "रजिस्ट्रेशन", ar: "التسجيلات" },
+  nav_dashboard: { en: "Dashboard", ml: "ഡാഷ്ബോഡ്", manglish: "Dashboard", hi: "डैशबोर्ड", ar: "لوحة المعلومات" },
+  nav_team: { en: "Team", ml: "ടീം", manglish: "Team", hi: "टीम", ar: "الفريق" },
+  nav_ourbiz: { en: "Our Business", ml: "ഐ ബിസിനസ്സ്", manglish: "Our Business", hi: "हमारा व्यवसाय", ar: "عملنا" },
+  nav_companies: { en: "Companies", ml: "കമ്പനികള്‍", manglish: "Companies", hi: "कंपनियां", ar: "الشركات" },
 
   // Header / auth
   sign_in: { en: "Sign In", ml: "സൈൻ ഇൻ ചെയ്യുക", manglish: "Sign In cheyyuka", hi: "साइन इन करें", ar: "تسجيل الدخول" },

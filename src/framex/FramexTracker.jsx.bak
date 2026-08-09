@@ -209,61 +209,34 @@ function CompanyList({ onSelect }) {
       {loading ? (
         <div style={{ color: COLORS.slate, fontSize: 13 }}>Loading...</div>
       ) : (
-        <>
-          <FramexGroup
-            label="Client Companies"
-            items={companies.filter((c) => !c.is_own_business)}
-            stagesByCompany={stagesByCompany}
-            onSelect={onSelect}
-            emptyText="No clients yet — add one to get started."
-          />
-          <div style={{ height: 28 }} />
-          <FramexGroup
-            label="Our Business Units"
-            items={companies.filter((c) => c.is_own_business)}
-            stagesByCompany={stagesByCompany}
-            onSelect={onSelect}
-            emptyText="No business units yet."
-          />
-        </>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+          {companies.map((c) => {
+            const st = stagesByCompany[c.id] || [];
+            const done = st.filter((s) => s === "done").length;
+            const pct = st.length ? Math.round((done / st.length) * 100) : 0;
+            return (
+              <button key={c.id} onClick={() => onSelect(c)} style={{
+                textAlign: "left", background: COLORS.card, border: `1px solid ${COLORS.line}`, borderLeft: `3px solid ${COLORS.amber}`,
+                borderRadius: 2, padding: "14px 16px", cursor: "pointer",
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                  <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 14.5, color: COLORS.ink }}>{c.name}</div>
+                  {c.bfsp_category && (
+                    <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 9.5, color: COLORS.blueprint, border: `1px solid ${COLORS.blueprint}`, borderRadius: 10, padding: "1px 7px", whiteSpace: "nowrap" }}>
+                      {BFSP_STAGES.find((b) => b.key === c.bfsp_category)?.label}
+                    </span>
+                  )}
+                </div>
+                <div style={{ height: 6, background: COLORS.line, borderRadius: 3, overflow: "hidden", marginBottom: 6 }}>
+                  <div style={{ width: `${pct}%`, height: "100%", background: pct === 100 ? COLORS.green : COLORS.amber }} />
+                </div>
+                <div style={{ fontSize: 11.5, color: COLORS.slate }}>{done}/{st.length || 6} stages · {pct}%</div>
+              </button>
+            );
+          })}
+          {companies.length === 0 && <div style={{ color: COLORS.slate, fontSize: 13, fontStyle: "italic" }}>No clients yet — add one to get started.</div>}
+        </div>
       )}
-    </div>
-  );
-}
-
-function FramexGroup({ label, items, stagesByCompany, onSelect, emptyText }) {
-  return (
-    <div>
-      <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 10.5, letterSpacing: 1, color: COLORS.slate, textTransform: "uppercase", marginBottom: 10 }}>
-        {label} · {items.length}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-        {items.map((c) => {
-          const st = stagesByCompany[c.id] || [];
-          const done = st.filter((s) => s === "done").length;
-          const pct = st.length ? Math.round((done / st.length) * 100) : 0;
-          return (
-            <button key={c.id} onClick={() => onSelect(c)} style={{
-              textAlign: "left", background: COLORS.card, border: `1px solid ${COLORS.line}`, borderLeft: `3px solid ${COLORS.amber}`,
-              borderRadius: 2, padding: "14px 16px", cursor: "pointer",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 14.5, color: COLORS.ink }}>{c.name}</div>
-                {c.bfsp_category && (
-                  <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 9.5, color: COLORS.blueprint, border: `1px solid ${COLORS.blueprint}`, borderRadius: 10, padding: "1px 7px", whiteSpace: "nowrap" }}>
-                    {BFSP_STAGES.find((b) => b.key === c.bfsp_category)?.label}
-                  </span>
-                )}
-              </div>
-              <div style={{ height: 6, background: COLORS.line, borderRadius: 3, overflow: "hidden", marginBottom: 6 }}>
-                <div style={{ width: `${pct}%`, height: "100%", background: pct === 100 ? COLORS.green : COLORS.amber }} />
-              </div>
-              <div style={{ fontSize: 11.5, color: COLORS.slate }}>{done}/{st.length || 6} stages · {pct}%</div>
-            </button>
-          );
-        })}
-        {items.length === 0 && <div style={{ color: COLORS.slate, fontSize: 13, fontStyle: "italic" }}>{emptyText}</div>}
-      </div>
     </div>
   );
 }
